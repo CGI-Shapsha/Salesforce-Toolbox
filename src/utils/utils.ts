@@ -369,6 +369,9 @@ const retreiveFromManifest = async function (
     retrieve.onUpdate(({ status }) => {
         ux.setSpinnerStatus(status);
     });
+    retrieve.onError((error) => {
+        throw error;
+    })
     await retrieve.pollStatus();
     ux.stopSpinner('✔️\n');
 }
