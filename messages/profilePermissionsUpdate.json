@@ -1,5 +1,5 @@
 {
-  "commandDescription": "Update profiles with field level security and object permissions retrieved from a specified Org, according to the config file.",
+  "commandDescription": "Update profiles with permissions retrieved from a specified Org, according to the config file.",
   "configFlagDescription": "Path to the config file - Optionnal. If not provided, it will be loaded from the default location. If it does not exist, throw an error.",
   "examples": [
     "sfdx CGI:profiles:update --targetusername myOrg@example.com --config ./config.json",

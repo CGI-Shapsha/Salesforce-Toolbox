@@ -1,5 +1,5 @@
 {
-    "commandDescription": "Initialize the config file to run CGI:profile:update command",
+    "commandDescription": "Initialize the config file to run 'sfdx CGI:profiles:update' command",
     "examples": [
       "sfdx CGI:profiles:initConfig"
     ]

@@ -19,7 +19,7 @@ export default class InitConfig extends SfdxCommand {
         this.ux.styledHeader('Generating Config File');
         const configFilePath: string = await startInit(this.project['path']);
         this.ux.log(`Config File created here : ${configFilePath}`);
-        this.ux.log('Edit it before launching profile update job !');
+        this.ux.log('Edit it before launching profile update job !\n');
 
         return { path: configFilePath };
     }

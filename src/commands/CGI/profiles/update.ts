@@ -3,6 +3,7 @@ import { flags, FlagsConfig, SfdxCommand } from '@salesforce/command';
 import { Messages } from '@salesforce/core';
 import { AnyJson } from '@salesforce/ts-types';
 import { ProfileUpdater } from '../../../utils/profileUpdater';
+import { ProfileUpdaterOptionsType } from '../../../utils/typeDefs';
 
 Messages.importMessagesDirectory(__dirname);
 const messages = Messages.loadMessages('@cgi-fr/salesforce-toolbox', 'profilePermissionsUpdate');
@@ -23,13 +24,15 @@ export default class Update extends SfdxCommand {
     protected static requiresProject = true;
 
     public async run(): Promise<AnyJson> {
-        await ProfileUpdater.doUpdate({
+        const options: ProfileUpdaterOptionsType = {
             configPath: this.flags.config as string,
             orgUsername: this.org.getUsername(),
             projectPath: this.project.getPath(),
             projectPackDir: this.project.getPackageDirectories(),
             apiVersion: await this.org.retrieveMaxApiVersion(),
-        });
+            connection: this.org.getConnection(),
+        }
+        await ProfileUpdater.doUpdate(options);
         return { success: true };
     }
 }
