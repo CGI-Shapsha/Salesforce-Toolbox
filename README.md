@@ -55,7 +55,7 @@ $ npm install -g @cgi-fr/salesforce-toolbox
 $ sfdx COMMAND
 running command...
 $ sfdx (--version)
-@cgi-fr/salesforce-toolbox/0.1.0 win32-x64 node-v18.12.1
+@cgi-fr/salesforce-toolbox/0.1.2 win32-x64 node-v18.12.1
 $ sfdx --help [COMMAND]
 USAGE
   $ sfdx COMMAND
@@ -66,6 +66,8 @@ USAGE
 # Configuration File
 
 A configuration file is needed to tell plugin what permissions have to be retrieved and updated on your local profiles.
+
+When you give a name for any element (sObject name, custom field name, apex page name, etc...), the plugin expects the exact API name of this element (case sensitive).
 
 Here is a minimal example to retrieve Object Permission for Account object and Field Level Security (FLS) for all fields in Contact object :
 ```js
@@ -104,7 +106,7 @@ Or tell other Object-related permissions to retrieve :
     {
       "apiName": "Account",
       "retrieveRecordTypeVisibilities": true,
-      "retrievelayoutAssignments": true
+      "retrieveLayoutAssignments": true
     }
   ]
 }
@@ -118,7 +120,7 @@ You can also retrieve non-object-related permissions, here is a full example of 
       "apiName": "StandardsObject1",
       "retrieveObjectPermissions": false,
       "retrieveRecordTypeVisibilities": true,
-      "retrievelayoutAssignments": true,
+      "retrieveLayoutAssignments": true,
       "fieldsPermissionsFor": [
         "standardFieldA",
         "customFieldB__c"
@@ -128,7 +130,7 @@ You can also retrieve non-object-related permissions, here is a full example of 
       "apiName": "CustomsObject2__c",
       "retrieveObjectPermissions": true,
       "retrieveRecordTypeVisibilities": false,
-      "retrievelayoutAssignments": false,
+      "retrieveLayoutAssignments": false,
       "allFieldsPermissions": true
     }
   ],
@@ -227,7 +229,7 @@ EXAMPLES
   $ sfdx CGI:profiles:initConfig
 ```
 
-_See code: [src/commands/CGI/profiles/initConfig.ts](https://github.com/CGI-Shapsha/Salesforce-Toolbox/blob/v0.1.0/src/commands/CGI/profiles/initConfig.ts)_
+_See code: [src/commands/CGI/profiles/initConfig.ts](https://github.com/CGI-Shapsha/Salesforce-Toolbox/blob/v0.1.2/src/commands/CGI/profiles/initConfig.ts)_
 
 ## `sfdx CGI:profiles:update [-c <filepath>] [-v <string>] [-u <string>] [--apiversion <string>] [--json] [--loglevel trace|debug|info|warn|error|fatal|TRACE|DEBUG|INFO|WARN|ERROR|FATAL]`
 
@@ -264,5 +266,5 @@ EXAMPLES
   $ sfdx CGI:profiles:update
 ```
 
-_See code: [src/commands/CGI/profiles/update.ts](https://github.com/CGI-Shapsha/Salesforce-Toolbox/blob/v0.1.0/src/commands/CGI/profiles/update.ts)_
+_See code: [src/commands/CGI/profiles/update.ts](https://github.com/CGI-Shapsha/Salesforce-Toolbox/blob/v0.1.2/src/commands/CGI/profiles/update.ts)_
 <!-- commandsstop -->

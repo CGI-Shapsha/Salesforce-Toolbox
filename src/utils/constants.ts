@@ -6,14 +6,14 @@ const exampleConfig = {
             apiName: 'StandardsObject1',
             retrieveObjectPermissions: false,
             retrieveRecordTypeVisibilities: true,
-            retrievelayoutAssignments: true,
+            retrieveLayoutAssignments: true,
             fieldsPermissionsFor: ['standardFieldA', 'customFieldB__c'],
         },
         {
             apiName: 'CustomsObject2__c',
             retrieveObjectPermissions: true,
             retrieveRecordTypeVisibilities: false,
-            retrievelayoutAssignments: false,
+            retrieveLayoutAssignments: false,
             allFieldsPermissions: true
         },
     ],
