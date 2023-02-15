@@ -55,7 +55,7 @@ $ npm install -g @cgi-fr/salesforce-toolbox
 $ sfdx COMMAND
 running command...
 $ sfdx (--version)
-@cgi-fr/salesforce-toolbox/0.1.2 win32-x64 node-v18.12.1
+@cgi-fr/salesforce-toolbox/0.1.3 win32-x64 node-v18.12.1
 $ sfdx --help [COMMAND]
 USAGE
   $ sfdx COMMAND
@@ -229,7 +229,7 @@ EXAMPLES
   $ sfdx CGI:profiles:initConfig
 ```
 
-_See code: [src/commands/CGI/profiles/initConfig.ts](https://github.com/CGI-Shapsha/Salesforce-Toolbox/blob/v0.1.2/src/commands/CGI/profiles/initConfig.ts)_
+_See code: [src/commands/CGI/profiles/initConfig.ts](https://github.com/CGI-Shapsha/Salesforce-Toolbox/blob/v0.1.3/src/commands/CGI/profiles/initConfig.ts)_
 
 ## `sfdx CGI:profiles:update [-c <filepath>] [-v <string>] [-u <string>] [--apiversion <string>] [--json] [--loglevel trace|debug|info|warn|error|fatal|TRACE|DEBUG|INFO|WARN|ERROR|FATAL]`
 
@@ -266,5 +266,5 @@ EXAMPLES
   $ sfdx CGI:profiles:update
 ```
 
-_See code: [src/commands/CGI/profiles/update.ts](https://github.com/CGI-Shapsha/Salesforce-Toolbox/blob/v0.1.2/src/commands/CGI/profiles/update.ts)_
+_See code: [src/commands/CGI/profiles/update.ts](https://github.com/CGI-Shapsha/Salesforce-Toolbox/blob/v0.1.3/src/commands/CGI/profiles/update.ts)_
 <!-- commandsstop -->

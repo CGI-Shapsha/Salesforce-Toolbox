@@ -278,8 +278,14 @@ const addLayoutsToManifest = function(manifestJSON: ManifestType, config: Config
         if (sObject.retrieveLayoutAssignments) {
             for (const layoutItem of layoutList) {
                 if (layoutItem.fullName.startsWith(`${sObject.apiName}-`)) {
+                    let layoutFullName = layoutItem.fullName;
+                    if (layoutItem.namespacePrefix) {
+                        const splittedFullName = layoutItem.fullName.split('-');
+                        splittedFullName[1] = `${layoutItem.namespacePrefix}__${splittedFullName[1]}`;
+                        layoutFullName = splittedFullName.join('-');
+                    }
                     layoutMembers.push({
-                        _: layoutItem.fullName,
+                        _: layoutFullName,
                     });
                 }
             }
