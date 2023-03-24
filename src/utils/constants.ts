@@ -1,20 +1,36 @@
 const workingDirName = 'CGIToolBoxWD';
-const configFileName = 'profileUpdateConfig.json';
-const exampleConfig = {
+const profileConfigFileName = 'profileUpdateConfig.json';
+const translationConfigFileName = 'translationUpdateConfig.json';
+const manifestFileName = 'manifest.xml';
+const tempProjectDirName = 'temp-app';
+const manifestJSONBase = {
+    Package: {
+        $: {
+            xmlns: 'http://soap.sforce.com/2006/04/metadata',
+        },
+        types: [],
+        version: '',
+    },
+};
+const exampleProfileConfig = {
     sObjects: [
         {
             apiName: 'StandardsObject1',
             retrieveObjectPermissions: false,
             retrieveRecordTypeVisibilities: true,
             retrieveLayoutAssignments: true,
-            fieldsPermissionsFor: ['standardFieldA', 'customFieldB__c'],
+            fields: {
+                permissionsFor: ['standardFieldA', 'customFieldB__c']
+            }
         },
         {
             apiName: 'CustomsObject2__c',
             retrieveObjectPermissions: true,
             retrieveRecordTypeVisibilities: false,
             retrieveLayoutAssignments: false,
-            allFieldsPermissions: true
+            fields: {
+                allPermissions: true
+            }
         },
     ],
     apexClasses: {
@@ -47,7 +63,7 @@ const exampleConfig = {
     },
     userPermissions: {
         allPermissions: false,
-        permissionsFor: ['custo_tab_1','custo_tab_2']
+        permissionsFor: ['userPerm_1','userPerm_2']
     },
     externalDataSource: {
         allPermissions: false,
@@ -56,7 +72,80 @@ const exampleConfig = {
 	loginIpRanges: true,
 	loginHours: true
 };
-const manifestFileName = 'manifest.xml';
-const tempProjectDirName = 'temp-app';
+const exampleTranslationConfig = {
+    sObjects: [
+        {
+            apiName: 'sObject1',
+            fields: {
+				allTranslations: true
+			}
+        },
+        {
+            apiName: 'sObject2',
+            retrieveObjectRenameTranslations: false,
+            fields: {
+				allTranslations: false,
+            	translationsFor: ['standardFieldA', 'customFieldB__c']
+			},
+			layouts: {
+				allTranslations: false,
+            	translationsFor: ['layout1', 'layout2']
+			},
+            fieldSets: {
+				allTranslations: false,
+            	translationsFor: ['fieldSet1', 'fieldSet2']
+			},
+            quickActions: {
+				allTranslations: false,
+            	translationsFor: ['quickAction1', 'quickAction2']
+			},
+            recordTypes: {
+				allTranslations: false,
+            	translationsFor: ['record_type_1', 'record_type_2']
+			},
+            sharingReasons: {
+				allTranslations: false,
+            	translationsFor: ['sharingReason1', 'sharingReason2']
+			},
+            validationRules: {
+				allTranslations: false,
+            	translationsFor: ['vr01', 'vr02']
+			},
+            webLinks: {
+				allTranslations: false,
+            	translationsFor: ['button1', 'link2']
+			}
+        }
+    ],
+    customApplications: {
+        allTranslations: false,
+        translationsFor: ['customApp1', 'customApp2']
+    },
+    customLabels: {
+        allTranslations: false,
+        translationsFor: ['customLabel1', 'customLabel2']
+    },
+    flows: {
+        allTranslations: false,
+        translationsFor: ['flow1', 'flow2']
+    },
+    globalQuickActions: {
+        allTranslations: false,
+        translationsFor: ['globalQuickActions1', 'globalQuickActions2']
+    },
+    reportTypes: {
+        allTranslations: false,
+        translationsFor: ['reportTypes1', 'reportTypes2']
+    }
+};
 
-export { workingDirName, configFileName, exampleConfig, manifestFileName, tempProjectDirName };
+export { 
+    workingDirName,
+    profileConfigFileName,
+    translationConfigFileName,
+    exampleProfileConfig,
+    exampleTranslationConfig,
+    manifestFileName,
+    manifestJSONBase,
+    tempProjectDirName
+};

@@ -1,18 +1,16 @@
 /* eslint-disable no-await-in-loop */
 import * as path from 'path';
-import { UX } from '@salesforce/command';
-import { registry } from '@salesforce/source-deploy-retrieve';
 import { SfError } from '@salesforce/core';
+import { Progress, Spinner } from '@salesforce/sf-plugins-core';
 import * as utils from './utils';
 import * as permsHelper from './permissionsHelper';
-import { configFileName, manifestFileName, tempProjectDirName, workingDirName } from './constants';
+import { profileConfigFileName, manifestFileName, tempProjectDirName, workingDirName } from './constants';
 import { checkWorkingDir, deleteDirRecursive } from './dirManagment';
-import { ParsedProfile, ProfileUpdaterOptionsType } from './typeDefs';
+import { ParsedProfile, ProfileCustom, UpdaterOptionsType } from './typeDefs';
 
 export class ProfileUpdater {
     // eslint-disable-next-line complexity
-    public static async doUpdate(options: ProfileUpdaterOptionsType): Promise<void> {
-        const ux = await UX.create();
+    public static async doUpdate(options: UpdaterOptionsType): Promise<void> {
 
         let configPath = options.configPath;
         const orgUsername = options.orgUsername;
@@ -22,184 +20,195 @@ export class ProfileUpdater {
         const tempProjectPath = path.join(projectPath, workingDirName, tempProjectDirName);
 
         if (!configPath) {
-            configPath = path.join(projectPath, workingDirName, configFileName);
+            configPath = path.join(projectPath, workingDirName, profileConfigFileName);
         }
-        const config = await utils.getConfig(configPath);
+        const config = await utils.getProfileConfig(configPath);
         if (!config) {
             return;
         }
 
+        options.rootClass.styledHeader('Generating Manifest File');
+        options.rootClass.spinner = new Spinner(true);
+        options.rootClass.spinner.start('Generating Manifest', 'In progress');
+
         const workingDirPath = await checkWorkingDir(projectPath);
 
-        ux.styledHeader('Generating Manifest File');
-        const layoutList = 
-            config.isLayoutAssignments ?
-            await utils.getMetadataList(options.connection, registry.types.layout.name)
-            : undefined;
-        const mdtList = config.isCustomMetadataPermissions && config.customPermissions.allPermissions ?
-            (await utils.getMetadataList(options.connection, registry.types.customobject.name)).filter(sObject => sObject.fullName.endsWith('__mdt'))
-            : undefined;
-        const customSetingList = config.isCustomSettingPermissions && config.customSettings.allPermissions ?
-            await utils.getAllCustomSettingList(options.connection)
-            : undefined;
-        const customTabList = config.isCustomTabPermissions && config.customTabs.allPermissions ?
-            await utils.getAllCustomTabList(options.connection, options.apiVersion)
-            : undefined;
+        const manifestPath = await utils.generateProfileManifest(
+            options,
+            config,
+            apiVersion,
+            workingDirPath,
+            manifestFileName
+        );
+        options.rootClass.spinner.stop('✔️\n');
 
-        const manifestPath = await utils.generateManifest(config, layoutList, mdtList, customSetingList, customTabList, apiVersion, workingDirPath, manifestFileName);
-        ux.log('Manifest generated.\n');
+        options.rootClass.styledHeader(`Retreiving Metadata from Salesforce Org using : ${orgUsername}`);
+        await utils.retreiveFromManifest(manifestPath, tempProjectPath, orgUsername, options.rootClass, 'permissions');
 
-        ux.styledHeader(`Retreiving Metadata from Salesforce Org using : ${orgUsername}`);
-        await utils.retreiveFromManifest(manifestPath, tempProjectPath, orgUsername);
-
-        ux.styledHeader('Updating local profiles');
-        ux.startSpinner('Updating local profiles', 'Initializing');
-
-        const fieldsPermissionsToUpdate = config.isFieldPermissions ? permsHelper.getAllFieldsPermissionsToUpdate(config) : [];
-        const objectsPermissionsToUpdate = config.isObjectPermissions ? permsHelper.getAllObjectPermissionsToUpdate(config) : [];
-        const recordTypePermissionsToUpdate = config.isRecordTypePermissions ? permsHelper.getAllRecordTypePermissionsToUpdate(config) : [];
-        const layoutPermissionsToUpdate = config.isLayoutAssignments ? permsHelper.getAllLayoutPermissionsToUpdate(config) : [];
-        const apexPermissionsToUpdate = config.isApexPermissions ? permsHelper.getAllGenericPermissionsToUpdate(config.apexClasses) : [];
-        const pagePermissionsToUpdate = config.isPagePermissions ? permsHelper.getAllGenericPermissionsToUpdate(config.apexPages) : [];
-        const customAppPermissionsToUpdate = config.isCustomApplicationPermissions ? permsHelper.getAllGenericPermissionsToUpdate(config.customApplications) : [];
-        const customMDTToUpdate = config.isCustomMetadataPermissions ? permsHelper.getAllGenericPermissionsToUpdate(config.customMetadataTypes) : [];
-        const customPermPermissionsToUpdate = config.isCustomPermissionPermissions ? permsHelper.getAllGenericPermissionsToUpdate(config.customPermissions) : [];
-        const customSettingPermissionsToUpdate = config.isCustomSettingPermissions ? permsHelper.getAllGenericPermissionsToUpdate(config.customSettings) : [];
-        const customTabsPermissionsToUpdate = config.isCustomTabPermissions ? permsHelper.getAllGenericPermissionsToUpdate(config.customTabs) : [];
-        const userPermissionsToUpdate = config.isUserPermissions ? permsHelper.getAllGenericPermissionsToUpdate(config.userPermissions) : [];
-        const externalDataSourceToUpdate = config.isExternalDataSource ? permsHelper.getAllGenericPermissionsToUpdate(config.externalDataSource) : [];
+        options.rootClass.styledHeader('Updating local profiles');
+        options.rootClass.spinner = new Spinner(true);
+        options.rootClass.spinner.start('Initializing Update', 'In progress');
 
         const localProfilesInfo = utils.loadProfileFromPackageDirectories(projectPath, projectPackDir);
         const retreivedProfilesInfo = utils.loadProfileFromPackageDirectories(projectPath, undefined, [
             path.join(workingDirName, tempProjectDirName),
         ]);
 
+        options.rootClass.spinner.stop('✔️\n');
+
+        options.rootClass.log('Updating local profiles :')
         let profileCounter = 0;
         const totalProfiles = localProfilesInfo.length;
+        options.rootClass.progress = new Progress(true);
+        options.rootClass.progress.start(totalProfiles);
         for (const profileInfo of localProfilesInfo) {
             profileCounter++;
-            ux.setSpinnerStatus(`${profileCounter} of ${totalProfiles}`);
+            options.rootClass.progress.update(profileCounter);
+
             const correspondingRetreivedProfileInfo = retreivedProfilesInfo.find((pi) => JSON.stringify(pi.filename) === JSON.stringify(profileInfo.filename));
             if (!correspondingRetreivedProfileInfo) continue;
 
             let currentProfileJSON = await utils.readXml(profileInfo.path) as ParsedProfile;
             const retreivedProfileJSON = await utils.readXml(correspondingRetreivedProfileInfo.path) as ParsedProfile;
 
+            if (!currentProfileJSON || !Object.prototype.hasOwnProperty.call(currentProfileJSON, 'Profile')) {
+                continue;
+            }
+            if (!retreivedProfileJSON || !Object.prototype.hasOwnProperty.call(retreivedProfileJSON, 'Profile')) {
+                continue;
+            }
+
+            let currentProfile: ProfileCustom = currentProfileJSON.Profile;
+            const updatedProfile: ProfileCustom = retreivedProfileJSON.Profile;
+
             if (config.isObjectPermissions) {
-                currentProfileJSON = permsHelper.updateObjectPermissions(
-                    currentProfileJSON,
-                    retreivedProfileJSON,
+                const objectsPermissionsToUpdate = permsHelper.getAllObjectPermissionsToUpdate(config);
+                currentProfile = permsHelper.updateObjectPermissions(
+                    currentProfile,
+                    updatedProfile,
                     objectsPermissionsToUpdate
                 );
             }
 
             if (config.isFieldPermissions) {
-                currentProfileJSON = permsHelper.updateFieldPermissions(
-                    currentProfileJSON,
-                    retreivedProfileJSON,
+                const fieldsPermissionsToUpdate = permsHelper.getAllFieldsPermissionsToUpdate(config);
+                currentProfile = permsHelper.updateFieldPermissions(
+                    currentProfile,
+                    updatedProfile,
                     fieldsPermissionsToUpdate
                 );
             }
 
             if (config.isRecordTypePermissions) {
-                currentProfileJSON = permsHelper.updateRecordTypePermissions(
-                    currentProfileJSON,
-                    retreivedProfileJSON,
+                const recordTypePermissionsToUpdate = permsHelper.getAllRecordTypePermissionsToUpdate(config);
+                currentProfile = permsHelper.updateRecordTypePermissions(
+                    currentProfile,
+                    updatedProfile,
                     recordTypePermissionsToUpdate
                 );
             }
 
             if (config.isLayoutAssignments) {
-                currentProfileJSON = permsHelper.updateLayoutPermissions(
-                    currentProfileJSON,
-                    retreivedProfileJSON,
+                const layoutPermissionsToUpdate = permsHelper.getAllLayoutPermissionsToUpdate(config);
+                currentProfile = permsHelper.updateLayoutPermissions(
+                    currentProfile,
+                    updatedProfile,
                     layoutPermissionsToUpdate
                 );
             }
 
             if (config.isApexPermissions) {
-                currentProfileJSON = permsHelper.updateApexPermissions(
-                    currentProfileJSON,
-                    retreivedProfileJSON,
+                const apexPermissionsToUpdate = permsHelper.getAllGenericPermissionsToUpdate(config.apexClasses, 'apex');
+                currentProfile = permsHelper.updateApexPermissions(
+                    currentProfile,
+                    updatedProfile,
                     apexPermissionsToUpdate
                 );
             }
 
             if (config.isPagePermissions) {
-                currentProfileJSON = permsHelper.updatePagePermissions(
-                    currentProfileJSON,
-                    retreivedProfileJSON,
+                const pagePermissionsToUpdate = permsHelper.getAllGenericPermissionsToUpdate(config.apexPages, 'page');
+                currentProfile = permsHelper.updatePagePermissions(
+                    currentProfile,
+                    updatedProfile,
                     pagePermissionsToUpdate
                 );
             }
 
             if (config.isCustomApplicationPermissions) {
-                currentProfileJSON = permsHelper.updateCustomAppPermissions(
-                    currentProfileJSON,
-                    retreivedProfileJSON,
+                const customAppPermissionsToUpdate = permsHelper.getAllGenericPermissionsToUpdate(config.customApplications, 'custApp');
+                currentProfile = permsHelper.updateCustomAppPermissions(
+                    currentProfile,
+                    updatedProfile,
                     customAppPermissionsToUpdate
                 );
             }
 
             if (config.isCustomMetadataPermissions) {
-                currentProfileJSON = permsHelper.updateCustomMetadataPermissions(
-                    currentProfileJSON,
-                    retreivedProfileJSON,
+                const customMDTToUpdate = permsHelper.getAllGenericPermissionsToUpdate(config.customMetadataTypes, 'custMetadata');
+                currentProfile = permsHelper.updateCustomMetadataPermissions(
+                    currentProfile,
+                    updatedProfile,
                     customMDTToUpdate
                 );
             }
 
             if (config.isCustomPermissionPermissions) {
-                currentProfileJSON = permsHelper.updateCustomPermPermissions(
-                    currentProfileJSON,
-                    retreivedProfileJSON,
+                const customPermPermissionsToUpdate = permsHelper.getAllGenericPermissionsToUpdate(config.customPermissions, 'custPerm');
+                currentProfile = permsHelper.updateCustomPermPermissions(
+                    currentProfile,
+                    updatedProfile,
                     customPermPermissionsToUpdate
                 );
             }
 
             if (config.isCustomSettingPermissions) {
-                currentProfileJSON = permsHelper.updateCustomSettingPermissions(
-                    currentProfileJSON,
-                    retreivedProfileJSON,
+                const customSettingPermissionsToUpdate = permsHelper.getAllGenericPermissionsToUpdate(config.customSettings, 'custSet');
+                currentProfile = permsHelper.updateCustomSettingPermissions(
+                    currentProfile,
+                    updatedProfile,
                     customSettingPermissionsToUpdate
                 );
             }
 
             if (config.isCustomTabPermissions) {
-                currentProfileJSON = permsHelper.updateCustomTabPermissions(
-                    currentProfileJSON,
-                    retreivedProfileJSON,
+                const customTabsPermissionsToUpdate = permsHelper.getAllGenericPermissionsToUpdate(config.customTabs, 'custTab');
+                currentProfile = permsHelper.updateCustomTabPermissions(
+                    currentProfile,
+                    updatedProfile,
                     customTabsPermissionsToUpdate
                 );
             }
 
             if (config.isUserPermissions) {
-                currentProfileJSON = permsHelper.updateUserPermissions(
-                    currentProfileJSON,
-                    retreivedProfileJSON,
+                const userPermissionsToUpdate = permsHelper.getAllGenericPermissionsToUpdate(config.userPermissions, 'userPerm');
+                currentProfile = permsHelper.updateUserPermissions(
+                    currentProfile,
+                    updatedProfile,
                     userPermissionsToUpdate
                 );
             }
 
             if (config.isExternalDataSource) {
-                currentProfileJSON = permsHelper.updateExtDataSourcePermissions(
-                    currentProfileJSON,
-                    retreivedProfileJSON,
+                const externalDataSourceToUpdate = permsHelper.getAllGenericPermissionsToUpdate(config.externalDataSource, 'extSource');
+                currentProfile = permsHelper.updateExtDataSourcePermissions(
+                    currentProfile,
+                    updatedProfile,
                     externalDataSourceToUpdate
                 );
             }
 
             if (config.loginIpRanges) {
-                currentProfileJSON = permsHelper.updateLoginIpRanges(
-                    currentProfileJSON,
-                    retreivedProfileJSON
+                currentProfile = permsHelper.updateLoginIpRanges(
+                    currentProfile,
+                    updatedProfile
                 );
             }
 
             if (config.loginHours) {
-                currentProfileJSON = permsHelper.updateLoginHours(
-                    currentProfileJSON,
-                    retreivedProfileJSON
+                currentProfile = permsHelper.updateLoginHours(
+                    currentProfile,
+                    updatedProfile
                 );
             }
 
@@ -207,15 +216,17 @@ export class ProfileUpdater {
 
             await utils.writeXml(profileInfo.path, currentProfileJSON);
         }
-        ux.stopSpinner('✔️\n');
+        options.rootClass.progress.finish();
+        options.rootClass.log('Local profiles successfully updated ! ✔️\n');
 
-        ux.styledHeader('Cleaning working directory');
-        ux.startSpinner('Cleaning', 'In progress');
+        options.rootClass.styledHeader('Cleaning working directory');
+        options.rootClass.spinner = new Spinner(true);
+        options.rootClass.spinner.start('Cleaning', 'In progress');
         try {
             await deleteDirRecursive(tempProjectPath);
-            ux.stopSpinner('✔️\n');
+            options.rootClass.spinner.stop('✔️\n');
         } catch {
-            ux.stopSpinner('❌\n');
+            options.rootClass.spinner.stop('❌\n');
             throw new SfError(`An error occured during WorkingDirectory cleaning. Please delete this folder if you don't need it : ${tempProjectPath}`);
         }
         return;

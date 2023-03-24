@@ -3,12 +3,29 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as xml2js from 'xml2js';
 import { ComponentSet, MetadataResolver, registry, SourceComponent } from '@salesforce/source-deploy-retrieve';
-import { UX } from '@salesforce/command';
 import { Connection, NamedPackageDir, SfError } from '@salesforce/core';
 import { FileProperties } from 'jsforce/lib/api/metadata';
 import { ListMetadataQuery } from '@salesforce/source-deploy-retrieve/lib/src/client/types';
-import { deleteDirRecursive } from './dirManagment';
-import { ProfileItem, ConfigType, ManifestType, TypeMembersType, ProfileInfoType, ParsedProfile, GenericConfigType, ProfileCustom, CustomTabLightType } from './typeDefs';
+import { SfCommand, Spinner } from '@salesforce/sf-plugins-core';
+import { CustomObjectTranslation, Translations } from 'jsforce/lib/api/metadata';
+import { deleteDirRecursive, deleteFile } from './dirManagment';
+import {
+    ProfileItem,
+    ProfileConfigType,
+    TranslationConfigType,
+    ManifestType,
+    TypeMembersType,
+    ProfileInfoType,
+    ParsedProfile,
+    GenericPermConfigType,
+    ProfileCustom,
+    CustomTabLightType,
+    UpdateOutput,
+    UpdaterOptionsType,
+    GenericTransConfigType,
+    SimpleToolingResponse
+} from './typeDefs';
+import { manifestJSONBase } from './constants';
 
 const sortProfile = function (profileJson: ParsedProfile): ParsedProfile {
     if (!profileJson || !Object.prototype.hasOwnProperty.call(profileJson, 'Profile')) return undefined;
@@ -51,31 +68,109 @@ const sortProfile = function (profileJson: ParsedProfile): ParsedProfile {
     return profileJson;
 }
 
-const customSort = function (arr: ProfileItem[], prop: string): ProfileItem[] {
+const sortObjTranslation = function (objTranslation: CustomObjectTranslation): CustomObjectTranslation {
+    if (!objTranslation) return undefined;
+
+    const sortMapping = {
+        caseValues: undefined,
+        fieldSets: 'name',
+        layouts: 'layout',
+        quickActions: 'name',
+        recordTypes: 'name',
+        sharingReasons: 'name',
+        validationRules: 'name',
+        webLinks: 'name',
+        workflowTasks: 'name'
+    };
+
+    for (const [metaType, propForSort] of Object.entries(sortMapping)) {
+        if (Object.prototype.hasOwnProperty.call(objTranslation, metaType)) {
+            if(!objTranslation[metaType]) {
+                delete objTranslation[metaType];
+                continue;
+            }
+            if (propForSort) {
+                objTranslation[metaType] = customSort(objTranslation[metaType], propForSort);
+            }
+        }
+    }
+
+    objTranslation = Object.keys(objTranslation)
+        .sort()
+        .reduce((obj, key: string) => {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            obj[key] = objTranslation[key];
+            return obj;
+        }, {}) as CustomObjectTranslation;
+
+    return objTranslation;
+}
+
+const sortTranslation = function (translation: Translations): Translations {
+    if (!translation) return undefined;
+
+    const sortMapping = {
+        bots: undefined,
+        customApplications	: 'name',
+        customLabels: 'name',
+        customPageWebLinks: 'name',
+        customTabs: 'name',
+        flowDefinitions: 'fullName',
+        pipelineInspMetricConfigs: undefined,
+        prompts: undefined,
+        quickActions: 'name',
+        reportTypes: 'name',
+        scontrols: 'name'
+    };
+
+    for (const [metaType, propForSort] of Object.entries(sortMapping)) {
+        if (Object.prototype.hasOwnProperty.call(translation, metaType)) {
+            if(!translation[metaType]) {
+                delete translation[metaType];
+                continue;
+            }
+            if (propForSort) {
+                translation[metaType] = customSort(translation[metaType], propForSort);
+            }
+        }
+    }
+
+    translation = Object.keys(translation)
+        .sort()
+        .reduce((obj, key: string) => {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            obj[key] = translation[key];
+            return obj;
+        }, {}) as Translations;
+
+    return translation;
+}
+
+const customSort = function (arr: [], prop: string): [] {
     return arr.sort((a: ProfileItem, b: ProfileItem): number => a[prop] < b[prop] ? -1 : 1);
 }
 
 // eslint-disable-next-line complexity
-const getConfig = async function (configPath: string): Promise<ConfigType> {
+const getProfileConfig = async function (configPath: string): Promise<ProfileConfigType> {
     if (!fs.existsSync(path.resolve(configPath))) {
-        throw new SfError('Config file does not exists ! Please run sfdx CGI:profiles:initConfig');
+        throw new SfError('Config file does not exists ! Please run sfdx CGI:profiles:initConfig or provide a path to a config file with \'-c\' flag');
     }
 
-    const config = JSON.parse(await fs.promises.readFile(configPath, 'utf-8')) as ConfigType;
+    const config = JSON.parse(await fs.promises.readFile(configPath, 'utf-8')) as ProfileConfigType;
 
-    config.isFieldPermissions = !!config.sObjects && !!config.sObjects.find(sObj => (sObj.fieldsPermissionsFor && sObj.fieldsPermissionsFor.length > 0) || !!sObj.allFieldsPermissions);
+    config.isFieldPermissions = !!config.sObjects && !!config.sObjects.find(sObj => !!sObj.fields?.allPermissions || (sObj.fields?.permissionsFor && sObj.fields.permissionsFor.length > 0));
     config.isObjectPermissions = !!config.sObjects && !!config.sObjects.find(sObj => sObj.retrieveObjectPermissions === true);
     config.isRecordTypePermissions = !!config.sObjects && !!config.sObjects.find(sObj => sObj.retrieveRecordTypeVisibilities === true);
     config.isLayoutAssignments = !!config.sObjects && !!config.sObjects.find(sObj => sObj.retrieveLayoutAssignments === true);
-    config.isApexPermissions = checkGenericConfig(config.apexClasses);
-    config.isPagePermissions = checkGenericConfig(config.apexPages);
-    config.isCustomApplicationPermissions = checkGenericConfig(config.customApplications);
-    config.isCustomMetadataPermissions = checkGenericConfig(config.customMetadataTypes);
-    config.isCustomPermissionPermissions = checkGenericConfig(config.customPermissions);
-    config.isCustomSettingPermissions = checkGenericConfig(config.customSettings);
-    config.isCustomTabPermissions = checkGenericConfig(config.customTabs);
-    config.isUserPermissions = checkGenericConfig(config.userPermissions);
-    config.isExternalDataSource = checkGenericConfig(config.externalDataSource);
+    config.isApexPermissions = checkGenericPermConfig(config.apexClasses);
+    config.isPagePermissions = checkGenericPermConfig(config.apexPages);
+    config.isCustomApplicationPermissions = checkGenericPermConfig(config.customApplications);
+    config.isCustomMetadataPermissions = checkGenericPermConfig(config.customMetadataTypes);
+    config.isCustomPermissionPermissions = checkGenericPermConfig(config.customPermissions);
+    config.isCustomSettingPermissions = checkGenericPermConfig(config.customSettings);
+    config.isCustomTabPermissions = checkGenericPermConfig(config.customTabs);
+    config.isUserPermissions = checkGenericPermConfig(config.userPermissions);
+    config.isExternalDataSource = checkGenericPermConfig(config.externalDataSource);
 
     if (!(config.isApexPermissions  
         || config.isPagePermissions
@@ -98,10 +193,90 @@ const getConfig = async function (configPath: string): Promise<ConfigType> {
     return config;
 }
 
-const checkGenericConfig = function (genericConfig: GenericConfigType): boolean {
+// eslint-disable-next-line complexity
+const getTranslationConfig = async function (configPath: string): Promise<TranslationConfigType> {
+    if (!fs.existsSync(path.resolve(configPath))) {
+        throw new SfError('Config file does not exists ! Please run sfdx CGI:translations:initConfig or provide a path to a config file with \'-c\' flag');
+    }
+
+    let isTranslations = false;
+    let isTranslationsWithNamedItems = false;
+
+    const config = JSON.parse(await fs.promises.readFile(configPath, 'utf-8')) as TranslationConfigType;
+
+    config.isRenameTranslations = !!config.sObjects && !!config.sObjects.find(sObj => sObj.retrieveObjectRenameTranslations === true);
+    config.isFieldTranslations = !!config.sObjects && !!config.sObjects.find(sObj => (sObj.fields?.allTranslations || sObj.fields?.translationsFor && sObj.fields.translationsFor.length > 0));
+    config.isLayoutTranslationsWithNamedItems = !!config.sObjects && !!config.sObjects.find(sObj => !sObj.layouts?.allTranslations && sObj.layouts?.translationsFor && sObj.layouts.translationsFor.length > 0);
+    config.isLayoutTranslations = config.isLayoutTranslationsWithNamedItems || (!!config.sObjects && !!config.sObjects.find(sObj => !!sObj.layouts?.allTranslations));
+    config.isFieldSetTranslationsWithNamedItems = !!config.sObjects && !!config.sObjects.find(sObj => !sObj.fieldSets?.allTranslations && sObj.fieldSets?.translationsFor && sObj.fieldSets.translationsFor.length > 0);
+    config.isFieldSetTranslations = config.isFieldSetTranslationsWithNamedItems || (!!config.sObjects && !!config.sObjects.find(sObj => sObj.fieldSets?.allTranslations));
+    config.isQuickActionTranslationsWithNamedItems = !!config.sObjects && !!config.sObjects.find(sObj => !sObj.quickActions?.allTranslations && sObj.quickActions?.translationsFor && sObj.quickActions.translationsFor.length > 0);
+    config.isQuickActionTranslations = config.isQuickActionTranslationsWithNamedItems || (!!config.sObjects && !!config.sObjects.find(sObj => sObj.quickActions?.allTranslations));
+    config.isRecordTypeTranslationsWithNamedItems = !!config.sObjects && !!config.sObjects.find(sObj => !sObj.recordTypes?.allTranslations && sObj.recordTypes?.translationsFor && sObj.recordTypes.translationsFor.length > 0);
+    config.isRecordTypeTranslations = config.isRecordTypeTranslationsWithNamedItems || (!!config.sObjects && !!config.sObjects.find(sObj => sObj.recordTypes?.allTranslations));
+    config.isSharingReasonTranslationsWithNamedItems = !!config.sObjects && !!config.sObjects.find(sObj => !sObj.sharingReasons?.allTranslations && sObj.sharingReasons?.translationsFor && sObj.sharingReasons.translationsFor.length > 0);
+    config.isSharingReasonTranslations = config.isSharingReasonTranslationsWithNamedItems || (!!config.sObjects && !!config.sObjects.find(sObj => sObj.sharingReasons?.allTranslations));
+    config.isValidationRuleTranslationsWithNamedItems = !!config.sObjects && !!config.sObjects.find(sObj => !sObj.validationRules?.allTranslations && sObj.validationRules?.translationsFor && sObj.validationRules.translationsFor.length > 0);
+    config.isValidationRuleTranslations = config.isValidationRuleTranslationsWithNamedItems || (!!config.sObjects && !!config.sObjects.find(sObj => sObj.validationRules?.allTranslations));
+    config.isWebLinkTranslationsWithNamedItems = !!config.sObjects && !!config.sObjects.find(sObj => !sObj.webLinks?.allTranslations && sObj.webLinks?.translationsFor && sObj.webLinks.translationsFor.length > 0);
+    config.isWebLinkTranslations = config.isWebLinkTranslationsWithNamedItems || (!!config.sObjects && !!config.sObjects.find(sObj => sObj.webLinks?.allTranslations));
+    config.isWorkflowTaskTranslationsWithNamedItems = !!config.sObjects && !!config.sObjects.find(sObj => !sObj.workflowTasks?.allTranslations && sObj.workflowTasks?.translationsFor && sObj.workflowTasks.translationsFor.length > 0);
+    config.isWorkflowTaskTranslations = config.isWorkflowTaskTranslationsWithNamedItems || (!!config.sObjects && !!config.sObjects.find(sObj => sObj.workflowTasks?.allTranslations));
+    ({isTranslations, isTranslationsWithNamedItems} = checkGenericTransConfig(config.customApplications));
+    config.isCustomApplicationTranslationsWithNamedItems = isTranslationsWithNamedItems;
+    config.isCustomApplicationTranslations = isTranslations;
+    ({isTranslations, isTranslationsWithNamedItems} = checkGenericTransConfig(config.customLabels));
+    config.isCustomLabelTranslationsWithNamedItems = isTranslationsWithNamedItems;
+    config.isCustomLabelTranslations = isTranslations;
+    ({isTranslations, isTranslationsWithNamedItems} = checkGenericTransConfig(config.flows));
+    config.isFlowTranslationsWithNamedItems = isTranslationsWithNamedItems;
+    config.isFlowTranslations = isTranslations;
+    ({isTranslations, isTranslationsWithNamedItems} = checkGenericTransConfig(config.globalQuickActions));
+    config.isGlobalQuickActionTranslationsWithNamedItems = isTranslationsWithNamedItems;
+    config.isGlobalQuickActionTranslations = isTranslations;
+    ({isTranslations, isTranslationsWithNamedItems} = checkGenericTransConfig(config.reportTypes));
+    config.isReportTypeTranslationsWithNamedItems = isTranslationsWithNamedItems;
+    config.isReportTypeTranslations = isTranslations;
+
+    if (!(config.isRenameTranslations
+        || config.isFieldTranslations
+        || config.isLayoutTranslations
+        || config.isFieldSetTranslations
+        || config.isQuickActionTranslations
+        || config.isRecordTypeTranslations
+        || config.isSharingReasonTranslations
+        || config.isValidationRuleTranslations
+        || config.isWebLinkTranslations
+        || config.isWorkflowTaskTranslations
+        || config.isCustomApplicationTranslations
+        || config.isCustomLabelTranslations
+        || config.isCustomTabTranslations
+        || config.isFlowTranslations
+        || config.isGlobalQuickActionTranslations
+        || config.isReportTypeTranslations
+    )) {
+        throw new SfError('Config file contains no translation to retrieve ! Please edit it.');
+    }
+    
+    return config;
+}
+
+const checkGenericPermConfig = function (genericConfig: GenericPermConfigType): boolean {
     if (!genericConfig) return false;
 
     return (genericConfig.allPermissions || (!!genericConfig.permissionsFor && genericConfig.permissionsFor.length > 0));
+}
+
+const checkGenericTransConfig = function (genericConfig: GenericTransConfigType): { isTranslations: boolean; isTranslationsWithNamedItems: boolean } {
+    let isTranslations = false;
+    let isTranslationsWithNamedItems = false;
+    if (genericConfig) {
+        const isAllTranslations = !!genericConfig.allTranslations;
+        isTranslationsWithNamedItems = !isAllTranslations && !!genericConfig.translationsFor && genericConfig.translationsFor.length > 0;
+        isTranslations = isAllTranslations || isTranslationsWithNamedItems;
+    }
+
+    return {isTranslations, isTranslationsWithNamedItems};
 }
 
 const readXml = async function (xmlPath: string): Promise<Record<string, unknown>> {
@@ -115,8 +290,8 @@ const readXml = async function (xmlPath: string): Promise<Record<string, unknown
 }
 
 const writeXml = async function (xmlPath: string, jsonContent: Record<string, unknown>): Promise<void> {
-    const builderOptions: xml2js.BuilderOptions = {
-        renderOpts: { pretty: true, indent: '    ', newline: '\n' },
+    const builderOptions = {
+        renderOpts: { pretty: true, indent: '    ', newline: '\n', allowEmpty: true},
         xmldec: { version: '1.0', encoding: 'UTF-8' },
     };
     const builder = new xml2js.Builder(builderOptions);
@@ -124,18 +299,29 @@ const writeXml = async function (xmlPath: string, jsonContent: Record<string, un
     await fs.promises.writeFile(xmlPath, xml + '\n');
 }
 
-const generateManifest = async function (
-    config: ConfigType,
-    layoutList: FileProperties[],
-    cmtList: FileProperties[],
-    customSetingList: string[],
-    customTabList: CustomTabLightType[],
+// eslint-disable-next-line complexity
+const generateProfileManifest = async function (
+    options: UpdaterOptionsType,
+    config: ProfileConfigType,
     apiVersion: string,
     workingDirPath: string,
     manifestFileName: string
 ): Promise<string> {
     const manifestFilePath = path.join(workingDirPath, manifestFileName);
+    // Delete old manifest
+    await deleteFile(manifestFilePath);
 
+    const mdtList = config.isCustomMetadataPermissions && config.customPermissions.allPermissions ?
+        (await getMetadataList(options.connection, registry.types.customobject.name)).filter(sObject => sObject.fullName.endsWith('__mdt'))
+        : undefined;
+    const customSettingList = config.isCustomSettingPermissions && config.customSettings.allPermissions ?
+        await getAllCustomSettingList(options.connection)
+        : undefined;
+    const customTabList = config.isCustomTabPermissions && config.customTabs.allPermissions ?
+        await getAllCustomTabList(options.connection, options.apiVersion)
+        : undefined;
+
+    /* 
     let manifestJSON: ManifestType = {
         Package: {
             $: {
@@ -145,6 +331,9 @@ const generateManifest = async function (
             version: apiVersion,
         },
     };
+    */
+    let manifestJSON: ManifestType = manifestJSONBase as ManifestType;
+    manifestJSON.Package.version = apiVersion;
 
     if ( config.isObjectPermissions
         || config.isFieldPermissions
@@ -153,11 +342,18 @@ const generateManifest = async function (
         || config.isCustomMetadataPermissions
         || config.isCustomSettingPermissions
         || config.isCustomTabPermissions) {
-        manifestJSON = addSObjectsToManifest(manifestJSON, config, cmtList, customSetingList, customTabList);
+        manifestJSON = addSObjectsToManifest(manifestJSON, config, mdtList, customSettingList, customTabList);
     }
 
     if (config.isLayoutAssignments) {
-        manifestJSON = addLayoutsToManifest(manifestJSON, config, layoutList);
+        const sObjectAPINames: Set<string> = new Set<string>();
+        for (const sObject of config.sObjects) {
+            if (sObject.retrieveLayoutAssignments) {
+                sObjectAPINames.add(sObject.apiName);
+            }
+        }
+        const layoutList = await getMetadataList(options.connection, registry.types.layout.name);
+        ({manifestJSON} = addLayoutsToManifest(manifestJSON, sObjectAPINames, layoutList));
     }
 
     if (config.isApexPermissions) {
@@ -184,10 +380,7 @@ const generateManifest = async function (
         manifestJSON = addGenericMetadataToManifest(manifestJSON, config.externalDataSource, registry.types.externaldatasource.name);
     }
 
-    manifestJSON.Package.types.push({
-        members: [{ _: '*' }],
-        name: registry.types.profile.name,
-    });
+    manifestJSON = addGenericMetadataToManifest(manifestJSON, {allPermissions: true}, registry.types.profile.name);
 
     await writeXml(manifestFilePath, manifestJSON);
 
@@ -195,9 +388,159 @@ const generateManifest = async function (
 }
 
 // eslint-disable-next-line complexity
+const generateTranslationManifest = async function (
+    config: TranslationConfigType,
+    apiVersion: string,
+    workingDirPath: string,
+    manifestFileName: string,
+    activatedLanguages: string[],
+    connection: Connection
+): Promise<{ manifestFilePath: string; sObjectTranslationSet: Set<string>}> {
+    const manifestFilePath = path.join(workingDirPath, manifestFileName);
+    // Delete old manifest
+    await deleteFile(manifestFilePath);
+
+    let sObjectTranslationSet: Set<string> ;
+    /* 
+    let manifestJSON: ManifestType = {
+        Package: {
+            $: {
+                xmlns: 'http://soap.sforce.com/2006/04/metadata',
+            },
+            types: [],
+            version: apiVersion,
+        },
+    };
+    */
+    let manifestJSON: ManifestType = manifestJSONBase as ManifestType;
+    manifestJSON.Package.version = apiVersion;
+
+    if (config.isLayoutTranslations) {
+        const fullLayoutList = await getMetadataList(connection, registry.types.layout.name);
+        const sObjectAPINamesForAllLayouts: Set<string> = new Set<string>();
+        const sObjectAPINamesForSpecificLayouts: Record<string, string[]> = {};
+        for (const sObject of config.sObjects) {
+            if (sObject.layouts?.allTranslations) {
+                sObjectAPINamesForAllLayouts.add(sObject.apiName);
+            } else if (sObject.layouts?.translationsFor && sObject.layouts.translationsFor.length > 0) {
+                if (!Object.prototype.hasOwnProperty.call(sObjectAPINamesForSpecificLayouts, sObject.apiName)) {
+                    sObjectAPINamesForSpecificLayouts[sObject.apiName] = [];
+                }
+                sObjectAPINamesForSpecificLayouts[sObject.apiName].push(...sObject.layouts.translationsFor);
+            }
+        }
+        let isLayoutsAdded = false;
+        ({manifestJSON, isLayoutsAdded} = addLayoutsToManifest(manifestJSON, sObjectAPINamesForAllLayouts, fullLayoutList, sObjectAPINamesForSpecificLayouts));
+
+        config.isLayoutTranslations = isLayoutsAdded;
+    }
+
+    if (config.isQuickActionTranslations) {
+        const fullQuickActionList = await getMetadataList(connection, registry.types.quickaction.name);
+        const sObjectAPINamesForAllQuickActions: Set<string> = new Set<string>();
+        const sObjectAPINamesForSpecificQuickActions: Record<string, string[]> = {};
+        for (const sObject of config.sObjects) {
+            if (sObject.quickActions?.allTranslations) {
+                sObjectAPINamesForAllQuickActions.add(sObject.apiName);
+            } else if (sObject.quickActions?.translationsFor && sObject.quickActions.translationsFor.length > 0) {
+                if (!Object.prototype.hasOwnProperty.call(sObjectAPINamesForSpecificQuickActions, sObject.apiName)) {
+                    sObjectAPINamesForSpecificQuickActions[sObject.apiName] = [];
+                }
+                sObjectAPINamesForSpecificQuickActions[sObject.apiName].push(...sObject.quickActions.translationsFor);
+            }
+        }
+        let isQuickActionsAdded = false;
+        ({manifestJSON, isQuickActionsAdded} = addQuickActionsToManifest(manifestJSON, sObjectAPINamesForAllQuickActions, fullQuickActionList, sObjectAPINamesForSpecificQuickActions));
+
+        config.isQuickActionTranslations = isQuickActionsAdded;
+    }
+
+    if (config.isWorkflowTaskTranslations) {
+        const fullWorkflowList = await getMetadataList(connection, registry.types.workflow.name);
+        const sObjectAPINamesForWorkflowTasks: Set<string> = new Set<string>();
+        for (const sObject of config.sObjects) {
+            if (sObject.workflowTasks?.allTranslations
+                || (sObject.workflowTasks?.translationsFor && sObject.workflowTasks.translationsFor.length > 0)
+            ) {
+                sObjectAPINamesForWorkflowTasks.add(sObject.apiName);
+            }
+        }
+        let isWorkflowsAdded = false;
+        ({manifestJSON, isWorkflowsAdded} = addWorkflowsToManifest(manifestJSON, sObjectAPINamesForWorkflowTasks, fullWorkflowList));
+
+        config.isWorkflowTaskTranslations = isWorkflowsAdded;
+    }
+
+    if ( config.isRenameTranslations
+        || config.isFieldTranslations
+        || config.isLayoutTranslations
+        || config.isFieldSetTranslations
+        || config.isQuickActionTranslations
+        || config.isRecordTypeTranslations
+        || config.isSharingReasonTranslations
+        || config.isValidationRuleTranslations
+        || config.isWebLinkTranslations
+        || config.isWorkflowTaskTranslations
+    ) {
+        ({manifestJSON, sObjectTranslationSet} = addTranslationSObjectsToManifest(manifestJSON, config, activatedLanguages));
+    }
+
+    if (config.isCustomApplicationTranslations) {
+        let isItemAdded = false;
+        ({manifestJSON, isItemAdded} = addGenericTypeToManifestWithWildcard(manifestJSON, config.customApplications, registry.types.customapplication.name));
+
+        config.isCustomApplicationTranslations = isItemAdded;
+    }
+
+    if (config.isCustomLabelTranslations) {
+        let isItemAdded = false;
+        ({manifestJSON, isItemAdded} = addGenericTypeToManifestWithWildcard(manifestJSON, config.customLabels, registry.types.customlabels.name));
+
+        config.isCustomLabelTranslations = isItemAdded;
+    }
+
+    if (config.isFlowTranslations) {
+        let isItemAdded = false;
+        ({manifestJSON, isItemAdded} = addGenericTypeToManifestWithWildcard(manifestJSON, config.flows, registry.types.flow.name));
+
+        config.isFlowTranslations = isItemAdded;
+    }
+
+    if (config.isGlobalQuickActionTranslations) {
+        const allGlobalQuickActions = await getAllGlobalQuickActionsList(connection, apiVersion);
+        let isItemAdded = false;
+        ({manifestJSON, isItemAdded} = addGenericTypeToManifest(manifestJSON, config.globalQuickActions, allGlobalQuickActions, registry.types.quickaction.name));
+
+        config.isGlobalQuickActionTranslations = isItemAdded;
+    }
+
+    if (config.isReportTypeTranslations) {
+        let isItemAdded = false;
+        ({manifestJSON, isItemAdded} = addGenericTypeToManifestWithWildcard(manifestJSON, config.reportTypes, registry.types.reporttype.name));
+
+        config.isReportTypeTranslations = isItemAdded;
+    }
+
+    if (config.isCustomApplicationTranslations
+        || config.isCustomLabelTranslations
+        || config.isFlowTranslations
+        || config.isGlobalQuickActionTranslations
+        || config.isReportTypeTranslations
+    ) {
+        ({manifestJSON} = addGenericTypeToManifestWithWildcard(manifestJSON, {allTranslations: true}, registry.types.translations.name));
+    }
+
+    if (manifestJSON.Package.types.length > 0) {
+        await writeXml(manifestFilePath, manifestJSON);
+    }
+
+    return {manifestFilePath, sObjectTranslationSet};
+}
+
+// eslint-disable-next-line complexity
 const addSObjectsToManifest = function(
     manifestJSON: ManifestType,
-    config: ConfigType,
+    config: ProfileConfigType,
     cmtList: FileProperties[],
     customSetingList: string[],
     customTabList: CustomTabLightType[]
@@ -271,36 +614,259 @@ const addSObjectsToManifest = function(
     return manifestJSON;
 }
 
-const addLayoutsToManifest = function(manifestJSON: ManifestType, config: ConfigType, layoutList: FileProperties[]): ManifestType {
-    const layoutMembers: TypeMembersType[] = [];
+// eslint-disable-next-line complexity
+const addTranslationSObjectsToManifest = function(
+    manifestJSON: ManifestType,
+    config: TranslationConfigType,
+    activatedLanguages: string[]
+): { manifestJSON: ManifestType; sObjectTranslationSet: Set<string> } {
+
+    const sObjectSet: Set<string> = new Set<string>();
+    const sObjectTranslationSet: Set<string> = new Set<string>();
+    const customObjectsMembers: TypeMembersType[] = [];
+    const customObjectsTranslationMembers: TypeMembersType[] = [];
 
     for (const sObject of config.sObjects) {
-        if (sObject.retrieveLayoutAssignments) {
-            for (const layoutItem of layoutList) {
-                if (layoutItem.fullName.startsWith(`${sObject.apiName}-`)) {
-                    let layoutFullName = layoutItem.fullName;
-                    if (layoutItem.namespacePrefix) {
-                        const splittedFullName = layoutItem.fullName.split('-');
-                        splittedFullName[1] = `${layoutItem.namespacePrefix}__${splittedFullName[1]}`;
-                        layoutFullName = splittedFullName.join('-');
-                    }
-                    layoutMembers.push({
-                        _: layoutFullName,
-                    });
-                }
+        if (
+            sObject.retrieveObjectRenameTranslations
+            || sObject.fields?.allTranslations
+            || (sObject.fields?.translationsFor && sObject.fields.translationsFor.length > 0)
+            || sObject.layouts?.allTranslations
+            || (sObject.layouts?.translationsFor && sObject.layouts.translationsFor.length > 0)
+            || sObject.fieldSets?.allTranslations
+            || (sObject.fieldSets?.translationsFor && sObject.fieldSets.translationsFor.length > 0)
+            || sObject.quickActions?.allTranslations
+            || (sObject.quickActions?.translationsFor && sObject.quickActions.translationsFor.length > 0)
+            || sObject.recordTypes?.allTranslations
+            || (sObject.recordTypes?.translationsFor && sObject.recordTypes.translationsFor.length > 0)
+            || sObject.sharingReasons?.allTranslations
+            || (sObject.sharingReasons?.translationsFor && sObject.sharingReasons.translationsFor.length > 0)
+            || sObject.validationRules?.allTranslations
+            || (sObject.validationRules?.translationsFor && sObject.validationRules.translationsFor.length > 0)
+            || sObject.webLinks?.allTranslations
+            || (sObject.webLinks?.translationsFor && sObject.webLinks.translationsFor.length > 0)
+            || sObject.workflowTasks?.allTranslations
+            || (sObject.workflowTasks?.translationsFor && sObject.workflowTasks.translationsFor.length > 0)
+        ) {
+            sObjectSet.add(sObject.apiName);
+            activatedLanguages.forEach(l => {
+                sObjectTranslationSet.add(`${sObject.apiName}-${l}`);
+            });
+        }
+    }
+
+    for (const sObj of sObjectSet) {
+        customObjectsMembers.push({
+            _: sObj
+        });
+    }
+
+    for (const sObjTranslation of sObjectTranslationSet) {
+        customObjectsTranslationMembers.push({
+            _: sObjTranslation
+        });
+    }
+
+    manifestJSON.Package.types.push({
+        members: customObjectsMembers,
+        name: registry.types.customobject.name,
+    });
+
+    manifestJSON.Package.types.push({
+        members: customObjectsTranslationMembers,
+        name: registry.types.customobjecttranslation.name,
+    });
+
+    return {manifestJSON,sObjectTranslationSet};
+}
+
+const addLayoutsToManifest = function(
+    manifestJSON: ManifestType,
+    sObjectAPINames: Set<string>,
+    layoutList: FileProperties[],
+    sObjectAPINamesForSpecificLayouts: Record<string, string[]> = {}
+): { manifestJSON: ManifestType; isLayoutsAdded: boolean } {
+    const layoutMembers: TypeMembersType[] = [];
+
+    for (const sObjectAPIName of sObjectAPINames) {
+        for (const layoutItem of layoutList) {
+            if (layoutItem.fullName.startsWith(`${sObjectAPIName}-`)) {
+                layoutMembers.push({
+                    _: getLayoutFullNameWithNamespace(layoutItem),
+                });
             }
         }
     }
 
-    manifestJSON.Package.types.push({
-        members: layoutMembers,
-        name: registry.types.layout.name,
-    });
+    for (const [sObjectAPIName, layouts] of Object.entries(sObjectAPINamesForSpecificLayouts)) {
+        for (const layoutName of layouts) {
+            const layoutProp = layoutList.find(lp => lp.fullName === `${sObjectAPIName}-${layoutName}`);
+            if (layoutProp) {
+                layoutMembers.push({
+                    _: getLayoutFullNameWithNamespace(layoutProp),
+                });
+            }
+        }
+    }
+
+    let isLayoutsAdded = false;
+    if (layoutMembers.length > 0) {
+        isLayoutsAdded = true;
+        manifestJSON.Package.types.push({
+            members: layoutMembers,
+            name: registry.types.layout.name,
+        });
+    }
     
-    return manifestJSON;
+    return {manifestJSON, isLayoutsAdded};
 }
 
-const addGenericMetadataToManifest = function(manifestJSON: ManifestType, configType: GenericConfigType, metadataName: string): ManifestType {
+const addQuickActionsToManifest = function(
+    manifestJSON: ManifestType,
+    sObjectAPINames: Set<string>,
+    quickActionList: FileProperties[],
+    sObjectAPINamesForSpecificQuickActions: Record<string, string[]> = {}
+): { manifestJSON: ManifestType; isQuickActionsAdded: boolean } {
+    const quickActionMembers: TypeMembersType[] = [];
+
+    for (const sObjectAPIName of sObjectAPINames) {
+        for (const quickActionItem of quickActionList) {
+            if (quickActionItem.fullName.startsWith(`${sObjectAPIName}.`)) {
+                quickActionMembers.push({
+                    _: quickActionItem.fullName,
+                });
+            }
+        }
+    }
+
+    for (const [sObjectAPIName, quickActions] of Object.entries(sObjectAPINamesForSpecificQuickActions)) {
+        for (const quickActionName of quickActions) {
+            const quickActionProp = quickActionList.find(qap => qap.fullName === `${sObjectAPIName}.${quickActionName}`);
+            if (quickActionProp) {
+                quickActionMembers.push({
+                    _: quickActionProp.fullName,
+                });
+            }
+        }
+    }
+
+    let isQuickActionsAdded = false;
+    if (quickActionMembers.length > 0) {
+        isQuickActionsAdded = true;
+        manifestJSON.Package.types.push({
+            members: quickActionMembers,
+            name: registry.types.quickaction.name,
+        });
+    }
+    
+    return {manifestJSON, isQuickActionsAdded};
+}
+
+const addWorkflowsToManifest = function(
+    manifestJSON: ManifestType,
+    sObjectAPINames: Set<string>,
+    workflowList: FileProperties[]
+): { manifestJSON: ManifestType; isWorkflowsAdded: boolean } {
+    const workflowMembers: TypeMembersType[] = [];
+
+    for (const sObjectAPIName of sObjectAPINames) {
+        for (const workflowItem of workflowList) {
+            if (workflowItem.fullName === sObjectAPIName) {
+                workflowMembers.push({
+                    _: workflowItem.fullName,
+                });
+            }
+        }
+    }
+
+    let isWorkflowsAdded = false;
+    if (workflowMembers.length > 0) {
+        isWorkflowsAdded = true;
+        manifestJSON.Package.types.push({
+            members: workflowMembers,
+            name: registry.types.workflow.name,
+        });
+    }
+    
+    return {manifestJSON, isWorkflowsAdded};
+}
+
+const addGenericTypeToManifest = function(
+    manifestJSON: ManifestType,
+    genericConfig: GenericTransConfigType,
+    fullItemList: SimpleToolingResponse[],
+    itemTypeName: string
+): { manifestJSON: ManifestType; isItemAdded: boolean } {
+    const itemMembers: TypeMembersType[] = [];
+
+    if (genericConfig?.allTranslations){
+        for (const item of fullItemList) {
+            itemMembers.push({
+                _: item.name,
+            });
+        }
+    } else if (genericConfig?.translationsFor && genericConfig.translationsFor.length > 0) {
+        for (const item of genericConfig.translationsFor) {
+            itemMembers.push({
+                _: item,
+            });
+        }
+    }
+
+    let isItemAdded = false;
+    if (itemMembers.length > 0) {
+        isItemAdded = true;
+        manifestJSON.Package.types.push({
+            members: itemMembers,
+            name: itemTypeName,
+        });
+    }
+    
+    return {manifestJSON, isItemAdded};
+}
+
+const addGenericTypeToManifestWithWildcard = function(
+    manifestJSON: ManifestType,
+    genericConfig: GenericTransConfigType,
+    itemTypeName: string
+): { manifestJSON: ManifestType; isItemAdded: boolean } {
+    const itemMembers: TypeMembersType[] = [];
+
+    if (genericConfig?.allTranslations || itemTypeName === registry.types.customlabels.name){
+        itemMembers.push({
+            _: '*',
+        });
+    } else if (genericConfig?.translationsFor && genericConfig.translationsFor.length > 0) {
+        for (const item of genericConfig.translationsFor) {
+            itemMembers.push({
+                _: item,
+            });
+        }
+    }
+
+    let isItemAdded = false;
+    if (itemMembers.length > 0) {
+        isItemAdded = true;
+        manifestJSON.Package.types.push({
+            members: itemMembers,
+            name: itemTypeName,
+        });
+    }
+    
+    return {manifestJSON, isItemAdded};
+}
+
+const getLayoutFullNameWithNamespace = function (layoutItem: FileProperties): string {
+    let layoutFullName = layoutItem.fullName;
+    if (layoutItem.namespacePrefix) {
+        const splittedFullName = layoutItem.fullName.split('-');
+        splittedFullName[1] = `${layoutItem.namespacePrefix}__${splittedFullName[1]}`;
+        layoutFullName = splittedFullName.join('-');
+    }
+    return layoutFullName;
+}
+
+const addGenericMetadataToManifest = function(manifestJSON: ManifestType, configType: GenericPermConfigType, metadataName: string): ManifestType {
     const typeMembers: TypeMembersType[] = [];
 
     if (configType.allPermissions) {
@@ -323,7 +889,7 @@ const addGenericMetadataToManifest = function(manifestJSON: ManifestType, config
     return manifestJSON;
 }
 
-const addCustomTabsToManifest = function(manifestJSON: ManifestType, configType: GenericConfigType): ManifestType {
+const addCustomTabsToManifest = function(manifestJSON: ManifestType, configType: GenericPermConfigType): ManifestType {
     const typeMembers: TypeMembersType[] = [];
 
     if (configType.allPermissions) {
@@ -353,9 +919,14 @@ const addCustomTabsToManifest = function(manifestJSON: ManifestType, configType:
 const retreiveFromManifest = async function (
     manifestPath: string,
     tempProjectPath: string,
-    orgUsername: string
+    orgUsername: string,
+    rootClass: SfCommand<UpdateOutput>,
+    operation: string
 ): Promise<void> {
-    const ux = await UX.create();
+
+    if (!fs.existsSync(manifestPath)) {
+        throw new SfError(`Config file contains no ${operation} to retrieve ! Please edit it.`);
+    }
 
     if (fs.existsSync(tempProjectPath)) {
         await deleteDirRecursive(tempProjectPath);
@@ -371,15 +942,17 @@ const retreiveFromManifest = async function (
         merge: true,
     });
 
-    ux.startSpinner('Retrieving Metadata', 'Initializing');
+    rootClass.spinner = new Spinner(true);
+    rootClass.spinner.start('Retrieving Metadata', 'Initializing');
     retrieve.onUpdate(({ status }) => {
-        ux.setSpinnerStatus(status);
+        // ux.setSpinnerStatus(status);
+        rootClass.spinner.status = status;
     });
     retrieve.onError((error) => {
         throw error;
     })
     await retrieve.pollStatus();
-    ux.stopSpinner('✔️\n');
+    rootClass.spinner.stop('✔️\n');
 }
 
 const loadProfileFromPackageDirectories = function (
@@ -415,6 +988,49 @@ const loadProfileFromPackageDirectories = function (
     return profileSourceFile;
 }
 
+const loadTranslationsFromPackageDirectories = function (
+    projectPath: string,
+    sObjectTranslationSet: Set<string>,
+    isTranslations: boolean,
+    projectPackageDirectories?: NamedPackageDir[],
+    userDefPackageDirectories?: string[]
+): SourceComponent[] {
+    const resolver = new MetadataResolver();
+    let translations: SourceComponent[] = [];
+    let packageDirectories: string[] = [];
+
+    if (!userDefPackageDirectories || userDefPackageDirectories.length === 0) {
+        packageDirectories = new Array<string>();
+        for (const packageDirectory of projectPackageDirectories) {
+            packageDirectories.push(packageDirectory.path);
+        }
+    } else {
+        packageDirectories = userDefPackageDirectories;
+    }
+
+    packageDirectories = packageDirectories.map((packDir) => path.join(projectPath, packDir));
+
+    const componentList = [];
+    sObjectTranslationSet?.forEach((sot => {
+        componentList.push({fullName: sot, type: registry.types.customobjecttranslation.name})
+    }));
+
+    if (isTranslations) {
+        componentList.push({ fullName: '*', type: registry.types.translations.name });
+    }
+
+    for (const packageDirectory of packageDirectories) {
+        translations = translations.concat(
+            resolver.getComponentsFromPath(
+                packageDirectory,
+                new ComponentSet(componentList)
+            )
+        );
+    }
+
+    return translations;
+}
+
 const getMetadataList = async function (connection: Connection, metadataName: string): Promise<FileProperties[]> {
     
     const listmetadataQuery: ListMetadataQuery = {
@@ -439,9 +1055,19 @@ const getAllCustomSettingList = async function (connection: Connection): Promise
 
 const getAllCustomTabList = async function (connection: Connection, apiVersion: string): Promise<CustomTabLightType[]> {
     const ret: CustomTabLightType[] = [];
-    const toolingRequest: CustomTabLightType[] = await connection.tooling.request(`/services/data/v${apiVersion}/tabs`);
-    for (const {name, sobjectName} of toolingRequest) {
+    const toolingResponse: CustomTabLightType[] = await connection.tooling.request(`/services/data/v${apiVersion}/tabs`);
+    for (const {name, sobjectName} of toolingResponse) {
         ret.push({name, sobjectName});
+    }
+
+    return ret;
+}
+
+const getAllGlobalQuickActionsList = async function (connection: Connection, apiVersion: string): Promise<SimpleToolingResponse[]> {
+    const ret: SimpleToolingResponse[] = [];
+    const toolingResponse: SimpleToolingResponse[] = await connection.tooling.request(`/services/data/v${apiVersion}/quickActions`);
+    for (const {name} of toolingResponse) {
+        ret.push({name});
     }
 
     return ret;
@@ -449,13 +1075,17 @@ const getAllCustomTabList = async function (connection: Connection, apiVersion: 
 
 export {
     sortProfile,
-    getConfig,
+    sortObjTranslation,
+    sortTranslation,
+    getProfileConfig,
+    getTranslationConfig,
     readXml,
     writeXml,
-    generateManifest,
+    generateProfileManifest,
+    generateTranslationManifest,
     retreiveFromManifest,
     loadProfileFromPackageDirectories,
+    loadTranslationsFromPackageDirectories,
     getMetadataList,
-    getAllCustomSettingList,
-    getAllCustomTabList
+    getAllCustomSettingList
 };

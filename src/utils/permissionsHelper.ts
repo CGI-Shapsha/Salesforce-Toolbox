@@ -1,20 +1,11 @@
-import { ConfigType, GenericConfigType, ParsedProfile, ProfileCustom } from './typeDefs';
+import { ProfileConfigType, GenericPermConfigType, ProfileCustom } from './typeDefs';
 
 
 const updateFieldPermissions = function (
-    currentProfileJson: ParsedProfile,
-    updatedProfileJson: ParsedProfile,
+    currentProfile: ProfileCustom,
+    updatedProfile: ProfileCustom,
     fieldsPermissionsToUpdate: string[][]
-): ParsedProfile {
-    if (!currentProfileJson || !Object.prototype.hasOwnProperty.call(currentProfileJson, 'Profile')) {
-        return;
-    }
-    if (!updatedProfileJson || !Object.prototype.hasOwnProperty.call(updatedProfileJson, 'Profile')) {
-        return currentProfileJson;
-    }
-
-    const currentProfile: ProfileCustom = currentProfileJson.Profile;
-    const updatedProfile: ProfileCustom = updatedProfileJson.Profile;
+): ProfileCustom {
 
     let allCurrentFieldPermissions = currentProfile.fieldPermissions;
     const allUpdatedFieldPermissions = updatedProfile.fieldPermissions;
@@ -48,23 +39,14 @@ const updateFieldPermissions = function (
     }
     currentProfile.fieldPermissions = allCurrentFieldPermissions;
 
-    return currentProfileJson;
+    return currentProfile;
 }
 
 const updateObjectPermissions = function (
-    currentProfileJson: ParsedProfile,
-    updatedProfileJson: ParsedProfile,
+    currentProfile: ProfileCustom,
+    updatedProfile: ProfileCustom,
     objectsPermissionsToUpdate: string[][]
-): ParsedProfile {
-    if (!currentProfileJson || !Object.prototype.hasOwnProperty.call(currentProfileJson, 'Profile')) {
-        return;
-    }
-    if (!updatedProfileJson || !Object.prototype.hasOwnProperty.call(updatedProfileJson, 'Profile')) {
-        return currentProfileJson;
-    }
-
-    const currentProfile: ProfileCustom = currentProfileJson.Profile;
-    const updatedProfile: ProfileCustom = updatedProfileJson.Profile;
+): ProfileCustom {
 
     let allCurrentObjectPermissions = currentProfile.objectPermissions;
     const allUpdatedObjectPermissions = updatedProfile.objectPermissions;
@@ -82,23 +64,14 @@ const updateObjectPermissions = function (
     }
     currentProfile.objectPermissions = allCurrentObjectPermissions;
 
-    return currentProfileJson;
+    return currentProfile;
 }
 
 const updateRecordTypePermissions = function (
-    currentProfileJson: ParsedProfile,
-    updatedProfileJson: ParsedProfile,
+    currentProfile: ProfileCustom,
+    updatedProfile: ProfileCustom,
     recordTypePermissionsToUpdate: string[][]
-): ParsedProfile {
-    if (!currentProfileJson || !Object.prototype.hasOwnProperty.call(currentProfileJson, 'Profile')) {
-        return;
-    }
-    if (!updatedProfileJson || !Object.prototype.hasOwnProperty.call(updatedProfileJson, 'Profile')) {
-        return currentProfileJson;
-    }
-
-    const currentProfile: ProfileCustom = currentProfileJson.Profile;
-    const updatedProfile: ProfileCustom = updatedProfileJson.Profile;
+): ProfileCustom {
 
     let allCurrentRecordTypePermissions = currentProfile.recordTypeVisibilities;
     const allUpdatedRecordTypePermissions = updatedProfile.recordTypeVisibilities;
@@ -117,23 +90,14 @@ const updateRecordTypePermissions = function (
     }
     currentProfile.recordTypeVisibilities = allCurrentRecordTypePermissions;
 
-    return currentProfileJson;
+    return currentProfile;
 }
 
 const updateLayoutPermissions = function (
-    currentProfileJson: ParsedProfile,
-    updatedProfileJson: ParsedProfile,
+    currentProfile: ProfileCustom,
+    updatedProfile: ProfileCustom,
     layoutPermissionsToUpdate: string[][]
-): ParsedProfile {
-    if (!currentProfileJson || !Object.prototype.hasOwnProperty.call(currentProfileJson, 'Profile')) {
-        return;
-    }
-    if (!updatedProfileJson || !Object.prototype.hasOwnProperty.call(updatedProfileJson, 'Profile')) {
-        return currentProfileJson;
-    }
-
-    const currentProfile: ProfileCustom = currentProfileJson.Profile;
-    const updatedProfile: ProfileCustom = updatedProfileJson.Profile;
+): ProfileCustom {
 
     let allCurrentLayoutPermissions = currentProfile.layoutAssignments;
     const allUpdatedLayoutPermissions = updatedProfile.layoutAssignments;
@@ -152,23 +116,14 @@ const updateLayoutPermissions = function (
     }
     currentProfile.layoutAssignments = allCurrentLayoutPermissions;
 
-    return currentProfileJson;
+    return currentProfile;
 }
 
 const updateApexPermissions = function (
-    currentProfileJson: ParsedProfile,
-    updatedProfileJson: ParsedProfile,
+    currentProfile: ProfileCustom,
+    updatedProfile: ProfileCustom,
     apexPermissionsToUpdate: string[][]
-): ParsedProfile {
-    if (!currentProfileJson || !Object.prototype.hasOwnProperty.call(currentProfileJson, 'Profile')) {
-        return;
-    }
-    if (!updatedProfileJson || !Object.prototype.hasOwnProperty.call(updatedProfileJson, 'Profile')) {
-        return currentProfileJson;
-    }
-
-    const currentProfile: ProfileCustom = currentProfileJson.Profile;
-    const updatedProfile: ProfileCustom = updatedProfileJson.Profile;
+): ProfileCustom {
 
     let allCurrentApexPermissions = currentProfile.classAccesses;
     const allUpdatedApexPermissions = updatedProfile.classAccesses;
@@ -176,7 +131,7 @@ const updateApexPermissions = function (
     if (JSON.stringify(apexPermissionsToUpdate) === JSON.stringify([['*']])) {
         allCurrentApexPermissions = allUpdatedApexPermissions;
         currentProfile.classAccesses = allCurrentApexPermissions;
-        return currentProfileJson;
+        return currentProfile;
     }
 
     // remove existing apexPermission
@@ -192,23 +147,14 @@ const updateApexPermissions = function (
     }
     currentProfile.classAccesses = allCurrentApexPermissions;
 
-    return currentProfileJson;
+    return currentProfile;
 }
 
 const updatePagePermissions = function (
-    currentProfileJson: ParsedProfile,
-    updatedProfileJson: ParsedProfile,
+    currentProfile: ProfileCustom,
+    updatedProfile: ProfileCustom,
     pagePermissionsToUpdate: string[][]
-): ParsedProfile {
-    if (!currentProfileJson || !Object.prototype.hasOwnProperty.call(currentProfileJson, 'Profile')) {
-        return;
-    }
-    if (!updatedProfileJson || !Object.prototype.hasOwnProperty.call(updatedProfileJson, 'Profile')) {
-        return currentProfileJson;
-    }
-
-    const currentProfile: ProfileCustom = currentProfileJson.Profile;
-    const updatedProfile: ProfileCustom = updatedProfileJson.Profile;
+): ProfileCustom{
 
     let allCurrentPagePermissions = currentProfile.pageAccesses;
     const allUpdatedPagePermissions = updatedProfile.pageAccesses;
@@ -216,7 +162,7 @@ const updatePagePermissions = function (
     if (JSON.stringify(pagePermissionsToUpdate) === JSON.stringify([['*']])) {
         allCurrentPagePermissions = allUpdatedPagePermissions;
         currentProfile.pageAccesses = allCurrentPagePermissions;
-        return currentProfileJson;
+        return currentProfile;
     }
 
     // remove existing apexPermission
@@ -232,23 +178,14 @@ const updatePagePermissions = function (
     }
     currentProfile.pageAccesses = allCurrentPagePermissions;
 
-    return currentProfileJson;
+    return currentProfile;
 }
 
 const updateCustomAppPermissions = function (
-    currentProfileJson: ParsedProfile,
-    updatedProfileJson: ParsedProfile,
+    currentProfile: ProfileCustom,
+    updatedProfile: ProfileCustom,
     customAppPermissionsToUpdate: string[][]
-): ParsedProfile {
-    if (!currentProfileJson || !Object.prototype.hasOwnProperty.call(currentProfileJson, 'Profile')) {
-        return;
-    }
-    if (!updatedProfileJson || !Object.prototype.hasOwnProperty.call(updatedProfileJson, 'Profile')) {
-        return currentProfileJson;
-    }
-
-    const currentProfile: ProfileCustom = currentProfileJson.Profile;
-    const updatedProfile: ProfileCustom = updatedProfileJson.Profile;
+): ProfileCustom{
 
     let allCurrentCustomAppPermissions = currentProfile.applicationVisibilities;
     const allUpdatedCustomAppPermissions = updatedProfile.applicationVisibilities;
@@ -256,7 +193,7 @@ const updateCustomAppPermissions = function (
     if (JSON.stringify(customAppPermissionsToUpdate) === JSON.stringify([['*']])) {
         allCurrentCustomAppPermissions = allUpdatedCustomAppPermissions;
         currentProfile.applicationVisibilities = allCurrentCustomAppPermissions;
-        return currentProfileJson;
+        return currentProfile;
     }
 
     // remove existing applicationVisibilities
@@ -272,23 +209,14 @@ const updateCustomAppPermissions = function (
     }
     currentProfile.applicationVisibilities = allCurrentCustomAppPermissions;
 
-    return currentProfileJson;
+    return currentProfile;
 }
 
 const updateCustomMetadataPermissions = function (
-    currentProfileJson: ParsedProfile,
-    updatedProfileJson: ParsedProfile,
+    currentProfile: ProfileCustom,
+    updatedProfile: ProfileCustom,
     customMDTToUpdate: string[][]
-): ParsedProfile {
-    if (!currentProfileJson || !Object.prototype.hasOwnProperty.call(currentProfileJson, 'Profile')) {
-        return;
-    }
-    if (!updatedProfileJson || !Object.prototype.hasOwnProperty.call(updatedProfileJson, 'Profile')) {
-        return currentProfileJson;
-    }
-
-    const currentProfile: ProfileCustom = currentProfileJson.Profile;
-    const updatedProfile: ProfileCustom = updatedProfileJson.Profile;
+): ProfileCustom{
 
     let allCurrentMDTPermissions = currentProfile.customMetadataTypeAccesses;
     const allUpdatedMDTPermissions = updatedProfile.customMetadataTypeAccesses;
@@ -296,7 +224,7 @@ const updateCustomMetadataPermissions = function (
     if (JSON.stringify(customMDTToUpdate) === JSON.stringify([['*']])) {
         allCurrentMDTPermissions = allUpdatedMDTPermissions;
         currentProfile.customMetadataTypeAccesses = allCurrentMDTPermissions;
-        return currentProfileJson;
+        return currentProfile;
     }
 
     // remove existing customMetadataTypeAccesses
@@ -312,23 +240,14 @@ const updateCustomMetadataPermissions = function (
     }
     currentProfile.customMetadataTypeAccesses = allCurrentMDTPermissions;
 
-    return currentProfileJson;
+    return currentProfile;
 }
 
 const updateCustomPermPermissions = function (
-    currentProfileJson: ParsedProfile,
-    updatedProfileJson: ParsedProfile,
+    currentProfile: ProfileCustom,
+    updatedProfile: ProfileCustom,
     customPermPermissionsToUpdate: string[][]
-): ParsedProfile {
-    if (!currentProfileJson || !Object.prototype.hasOwnProperty.call(currentProfileJson, 'Profile')) {
-        return;
-    }
-    if (!updatedProfileJson || !Object.prototype.hasOwnProperty.call(updatedProfileJson, 'Profile')) {
-        return currentProfileJson;
-    }
-
-    const currentProfile: ProfileCustom = currentProfileJson.Profile;
-    const updatedProfile: ProfileCustom = updatedProfileJson.Profile;
+): ProfileCustom{
 
     let allCurrentCustomPermPermissions = currentProfile.customPermissions;
     const allUpdatedCustomPermPermissions = updatedProfile.customPermissions;
@@ -336,7 +255,7 @@ const updateCustomPermPermissions = function (
     if (JSON.stringify(customPermPermissionsToUpdate) === JSON.stringify([['*']])) {
         allCurrentCustomPermPermissions = allUpdatedCustomPermPermissions;
         currentProfile.customPermissions = allCurrentCustomPermPermissions;
-        return currentProfileJson;
+        return currentProfile;
     }
 
     // remove existing customPermissions
@@ -352,23 +271,14 @@ const updateCustomPermPermissions = function (
     }
     currentProfile.customPermissions = allCurrentCustomPermPermissions;
 
-    return currentProfileJson;
+    return currentProfile;
 }
 
 const updateCustomSettingPermissions = function (
-    currentProfileJson: ParsedProfile,
-    updatedProfileJson: ParsedProfile,
+    currentProfile: ProfileCustom,
+    updatedProfile: ProfileCustom,
     customSettingPermissionsToUpdate: string[][]
-): ParsedProfile {
-    if (!currentProfileJson || !Object.prototype.hasOwnProperty.call(currentProfileJson, 'Profile')) {
-        return;
-    }
-    if (!updatedProfileJson || !Object.prototype.hasOwnProperty.call(updatedProfileJson, 'Profile')) {
-        return currentProfileJson;
-    }
-
-    const currentProfile: ProfileCustom = currentProfileJson.Profile;
-    const updatedProfile: ProfileCustom = updatedProfileJson.Profile;
+): ProfileCustom{
 
     let allCurrentCustomSettingPermissions = currentProfile.customSettingAccesses;
     const allUpdatedCustomSettingPermissions = updatedProfile.customSettingAccesses;
@@ -376,7 +286,7 @@ const updateCustomSettingPermissions = function (
     if (JSON.stringify(customSettingPermissionsToUpdate) === JSON.stringify([['*']])) {
         allCurrentCustomSettingPermissions = allUpdatedCustomSettingPermissions;
         currentProfile.customSettingAccesses = allCurrentCustomSettingPermissions;
-        return currentProfileJson;
+        return currentProfile;
     }
 
     // remove existing customSettingAccesses
@@ -392,23 +302,14 @@ const updateCustomSettingPermissions = function (
     }
     currentProfile.customSettingAccesses = allCurrentCustomSettingPermissions;
 
-    return currentProfileJson;
+    return currentProfile;
 }
 
 const updateCustomTabPermissions = function (
-    currentProfileJson: ParsedProfile,
-    updatedProfileJson: ParsedProfile,
+    currentProfile: ProfileCustom,
+    updatedProfile: ProfileCustom,
     customTabsPermissionsToUpdate: string[][]
-): ParsedProfile {
-    if (!currentProfileJson || !Object.prototype.hasOwnProperty.call(currentProfileJson, 'Profile')) {
-        return;
-    }
-    if (!updatedProfileJson || !Object.prototype.hasOwnProperty.call(updatedProfileJson, 'Profile')) {
-        return currentProfileJson;
-    }
-
-    const currentProfile: ProfileCustom = currentProfileJson.Profile;
-    const updatedProfile: ProfileCustom = updatedProfileJson.Profile;
+): ProfileCustom{
 
     let allCurrentCustomTabPermissions = currentProfile.tabVisibilities;
     const allUpdatedCustomTabPermissions = updatedProfile.tabVisibilities;
@@ -416,7 +317,7 @@ const updateCustomTabPermissions = function (
     if (JSON.stringify(customTabsPermissionsToUpdate) === JSON.stringify([['*']])) {
         allCurrentCustomTabPermissions = allUpdatedCustomTabPermissions;
         currentProfile.tabVisibilities = allCurrentCustomTabPermissions;
-        return currentProfileJson;
+        return currentProfile;
     }
 
     // remove existing tabVisibilities
@@ -432,23 +333,14 @@ const updateCustomTabPermissions = function (
     }
     currentProfile.tabVisibilities = allCurrentCustomTabPermissions;
 
-    return currentProfileJson;
+    return currentProfile;
 }
 
 const updateUserPermissions = function (
-    currentProfileJson: ParsedProfile,
-    updatedProfileJson: ParsedProfile,
+    currentProfile: ProfileCustom,
+    updatedProfile: ProfileCustom,
     userPermissionsToUpdate: string[][]
-): ParsedProfile {
-    if (!currentProfileJson || !Object.prototype.hasOwnProperty.call(currentProfileJson, 'Profile')) {
-        return;
-    }
-    if (!updatedProfileJson || !Object.prototype.hasOwnProperty.call(updatedProfileJson, 'Profile')) {
-        return currentProfileJson;
-    }
-
-    const currentProfile: ProfileCustom = currentProfileJson.Profile;
-    const updatedProfile: ProfileCustom = updatedProfileJson.Profile;
+): ProfileCustom{
 
     let allCurrentUserPermPermissions = currentProfile.userPermissions;
     const allUpdatedUserPermPermissions = updatedProfile.userPermissions;
@@ -456,7 +348,7 @@ const updateUserPermissions = function (
     if (JSON.stringify(userPermissionsToUpdate) === JSON.stringify([['*']])) {
         allCurrentUserPermPermissions = allUpdatedUserPermPermissions;
         currentProfile.userPermissions = allCurrentUserPermPermissions;
-        return currentProfileJson;
+        return currentProfile;
     }
 
     // remove existing userPermissions
@@ -472,23 +364,14 @@ const updateUserPermissions = function (
     }
     currentProfile.userPermissions = allCurrentUserPermPermissions;
 
-    return currentProfileJson;
+    return currentProfile;
 }
 
 const updateExtDataSourcePermissions = function (
-    currentProfileJson: ParsedProfile,
-    updatedProfileJson: ParsedProfile,
+    currentProfile: ProfileCustom,
+    updatedProfile: ProfileCustom,
     externalDataSourceToUpdate: string[][]
-): ParsedProfile {
-    if (!currentProfileJson || !Object.prototype.hasOwnProperty.call(currentProfileJson, 'Profile')) {
-        return;
-    }
-    if (!updatedProfileJson || !Object.prototype.hasOwnProperty.call(updatedProfileJson, 'Profile')) {
-        return currentProfileJson;
-    }
-
-    const currentProfile: ProfileCustom = currentProfileJson.Profile;
-    const updatedProfile: ProfileCustom = updatedProfileJson.Profile;
+): ProfileCustom{
 
     let allCurrentExtDataSourcePermissions = currentProfile.externalDataSourceAccesses;
     const allUpdatedExtDataSourcePermissions = updatedProfile.externalDataSourceAccesses;
@@ -496,7 +379,10 @@ const updateExtDataSourcePermissions = function (
     if (JSON.stringify(externalDataSourceToUpdate) === JSON.stringify([['*']])) {
         allCurrentExtDataSourcePermissions = allUpdatedExtDataSourcePermissions;
         currentProfile.externalDataSourceAccesses = allCurrentExtDataSourcePermissions;
-        return currentProfileJson;
+        if (!currentProfile.externalDataSourceAccesses || currentProfile.externalDataSourceAccesses.length === 0) {
+            delete currentProfile.externalDataSourceAccesses;
+        }
+        return currentProfile;
     }
 
     // remove existing userPermissions
@@ -512,111 +398,116 @@ const updateExtDataSourcePermissions = function (
     }
     currentProfile.externalDataSourceAccesses = allCurrentExtDataSourcePermissions;
 
-    return currentProfileJson;
+    if (!currentProfile.externalDataSourceAccesses || currentProfile.externalDataSourceAccesses.length === 0) {
+        delete currentProfile.externalDataSourceAccesses;
+    }
+    return currentProfile;
 }
 
 const updateLoginIpRanges = function (
-    currentProfileJson: ParsedProfile,
-    updatedProfileJson: ParsedProfile
-): ParsedProfile {
-    if (!currentProfileJson || !Object.prototype.hasOwnProperty.call(currentProfileJson, 'Profile')) {
-        return;
-    }
-    if (!updatedProfileJson || !Object.prototype.hasOwnProperty.call(updatedProfileJson, 'Profile')) {
-        return currentProfileJson;
-    }
-
-    const currentProfile: ProfileCustom = currentProfileJson.Profile;
-    const updatedProfile: ProfileCustom = updatedProfileJson.Profile;
+    currentProfile: ProfileCustom,
+    updatedProfile: ProfileCustom
+): ProfileCustom{
 
     currentProfile.loginIpRanges = updatedProfile.loginIpRanges;
     if (!currentProfile.loginIpRanges || currentProfile.loginIpRanges.length === 0) {
         delete currentProfile.loginIpRanges;
     }
-    return currentProfileJson;
+    return currentProfile;
 }
 
 const updateLoginHours = function (
-    currentProfileJson: ParsedProfile,
-    updatedProfileJson: ParsedProfile
-): ParsedProfile {
-    if (!currentProfileJson || !Object.prototype.hasOwnProperty.call(currentProfileJson, 'Profile')) {
-        return;
-    }
-    if (!updatedProfileJson || !Object.prototype.hasOwnProperty.call(updatedProfileJson, 'Profile')) {
-        return currentProfileJson;
-    }
-
-    const currentProfile: ProfileCustom = currentProfileJson.Profile;
-    const updatedProfile: ProfileCustom = updatedProfileJson.Profile;
+    currentProfile: ProfileCustom,
+    updatedProfile: ProfileCustom
+): ProfileCustom{
 
     currentProfile.loginHours = updatedProfile.loginHours;
     if (!currentProfile.loginHours) {
         delete currentProfile.loginHours;
     }
-    return currentProfileJson;
+    return currentProfile;
 }
 
-const getAllObjectPermissionsToUpdate = function (config: ConfigType): string[][] {
-    const ret: string[][] = [];
-
-    config.sObjects.forEach((sObj) => {
-        if (sObj.retrieveObjectPermissions) {
-            ret.push([sObj.apiName.trim()]);
-        }
-    });
-    return removeDuplicatesFromArray(ret);
+let objectPermissionsToUpdate: string[][];
+const getAllObjectPermissionsToUpdate = function (config: ProfileConfigType): string[][] {
+    if(!objectPermissionsToUpdate) {
+        const ret: string[][] = [];
+    
+        config.sObjects.forEach((sObj) => {
+            if (sObj.retrieveObjectPermissions) {
+                ret.push([sObj.apiName.trim()]);
+            }
+        });
+        objectPermissionsToUpdate = removeDuplicatesFromArray(ret)
+    }
+    return objectPermissionsToUpdate;
 }
 
-const getAllFieldsPermissionsToUpdate = function (config: ConfigType): string[][] {
-    const ret: string[][] = [];
+let fieldsPermissionsToUpdate: string[][];
+const getAllFieldsPermissionsToUpdate = function (config: ProfileConfigType): string[][] {
+    if(!fieldsPermissionsToUpdate) {
+        const ret: string[][] = [];
 
-    config.sObjects.forEach((sObj) => {
-        if (sObj.allFieldsPermissions) {
-            ret.push([`${sObj.apiName}.*`]);
-        } else if (sObj.fieldsPermissionsFor) {
-            sObj.fieldsPermissionsFor?.forEach((field) => {
-                ret.push([`${sObj.apiName.trim()}.${field.trim()}`]);
+        config.sObjects.forEach((sObj) => {
+            if (sObj.fields.allPermissions) {
+                ret.push([`${sObj.apiName}.*`]);
+            } else if (sObj.fields.permissionsFor && sObj.fields.permissionsFor.length > 0) {
+                sObj.fields.permissionsFor.forEach((field) => {
+                    ret.push([`${sObj.apiName.trim()}.${field.trim()}`]);
+                });
+            }
+        });
+        fieldsPermissionsToUpdate = removeDuplicatesFromArray(ret);
+    }
+    return fieldsPermissionsToUpdate;
+}
+
+let recordTypePermissionsToUpdate: string[][];
+const getAllRecordTypePermissionsToUpdate = function (config: ProfileConfigType): string[][] {
+    if(!recordTypePermissionsToUpdate) {
+        const ret: string[][] = [];
+
+        config.sObjects.forEach((sObj) => {
+            if (sObj.retrieveRecordTypeVisibilities) {
+                ret.push([sObj.apiName.trim()]);
+            }
+        });
+        recordTypePermissionsToUpdate = removeDuplicatesFromArray(ret);
+    }
+    return recordTypePermissionsToUpdate;
+}
+
+let layoutPermissionsToUpdate: string[][];
+const getAllLayoutPermissionsToUpdate = function (config: ProfileConfigType): string[][] {
+    if(!layoutPermissionsToUpdate) {
+        const ret: string[][] = [];
+
+        config.sObjects.forEach((sObj) => {
+            if (sObj.retrieveLayoutAssignments) {
+                ret.push([sObj.apiName.trim() + '-']);
+            }
+        });
+        layoutPermissionsToUpdate = removeDuplicatesFromArray(ret);
+    }
+    return layoutPermissionsToUpdate;
+}
+
+const genericPermissionsToUpdate: {[key: string]: string[][]} = {};
+const getAllGenericPermissionsToUpdate = function (genericConfig: GenericPermConfigType, type: string): string[][] {
+    if (!genericPermissionsToUpdate[type]) {
+        genericPermissionsToUpdate[type] = [];
+        const ret: string[][] = [];
+    
+        if (genericConfig.allPermissions) {
+            ret.push(['*']);
+        } else {
+            genericConfig.permissionsFor.forEach((element) => {
+                ret.push([element.trim()]);
             });
         }
-    });
-    return removeDuplicatesFromArray(ret);
-}
-
-const getAllRecordTypePermissionsToUpdate = function (config: ConfigType): string[][] {
-    const ret: string[][] = [];
-
-    config.sObjects.forEach((sObj) => {
-        if (sObj.retrieveRecordTypeVisibilities) {
-            ret.push([sObj.apiName.trim()]);
-        }
-    });
-    return removeDuplicatesFromArray(ret);
-}
-
-const getAllLayoutPermissionsToUpdate = function (config: ConfigType): string[][] {
-    const ret: string[][] = [];
-
-    config.sObjects.forEach((sObj) => {
-        if (sObj.retrieveLayoutAssignments) {
-            ret.push([sObj.apiName.trim() + '-']);
-        }
-    });
-    return removeDuplicatesFromArray(ret);
-}
-
-const getAllGenericPermissionsToUpdate = function (genericConfig: GenericConfigType): string[][] {
-    const ret: string[][] = [];
-
-    if (genericConfig.allPermissions) {
-        ret.push(['*']);
-        return ret;
+        genericPermissionsToUpdate[type] = removeDuplicatesFromArray(ret);
     }
-
-    genericConfig.permissionsFor.forEach((element) => {
-        ret.push([element.trim()]);
-    });
-    return removeDuplicatesFromArray(ret);
+    return genericPermissionsToUpdate[type];
 }
 
 // Private method

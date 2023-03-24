@@ -1,11 +1,11 @@
 import * as os from 'os';
 import { SfCommand, Flags } from '@salesforce/sf-plugins-core';
 import { Messages } from '@salesforce/core';
-import { ProfileUpdater } from '../../../utils/profileUpdater';
+import { TranslationUpdater } from '../../../utils/translationUpdater';
 import { UpdaterOptionsType, UpdateOutput } from '../../../utils/typeDefs';
 
 Messages.importMessagesDirectory(__dirname);
-const messages = Messages.loadMessages('@cgi-fr/salesforce-toolbox', 'profilePermissionsUpdate');
+const messages = Messages.loadMessages('@cgi-fr/salesforce-toolbox', 'translationUpdate');
 
 export default class Update extends SfCommand<UpdateOutput> {
     public static description = messages.getMessage('commandDescription');
@@ -29,7 +29,7 @@ export default class Update extends SfCommand<UpdateOutput> {
         const { flags } = await this.parse(Update);
         const org = flags['target-org'];
         const conn = org.getConnection();
-        
+
         const options: UpdaterOptionsType = {
             configPath: flags.config,
             orgUsername: org.getUsername(),
@@ -39,7 +39,7 @@ export default class Update extends SfCommand<UpdateOutput> {
             connection: conn,
             rootClass: this,
         }
-        await ProfileUpdater.doUpdate(options);
+        await TranslationUpdater.doUpdate(options);
         return { success: true };
     }
 }
