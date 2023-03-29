@@ -1,12 +1,11 @@
 {
   "name": "@cgi-fr/salesforce-toolbox",
   "description": "A plugin for SFDX to make Salesforce developers' life easier ! Made by Philippe Planchon for CGI©.",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "author": "Philippe Planchon <planchon.phil@gmail.com>",
   "bugs": "https://github.com/CGI-Shapsha/Salesforce-Toolbox/issues",
   "dependencies": {
     "@oclif/core": "^2.0.7",
-    "@salesforce/command": "^5",
     "@salesforce/core": "^3.33.6",
     "@salesforce/kit": "^1.8.4",
     "@salesforce/sf-plugins-core": "^2.2.4",
