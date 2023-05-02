@@ -373,7 +373,7 @@ EXAMPLES
   $ sfdx CGI:profiles:initConfig
 ```
 
-_See code: [src/commands/CGI/profiles/initConfig.ts](https://github.com/CGI-Shapsha/Salesforce-Toolbox/blob/v0.2.2/src/commands/CGI/profiles/initConfig.ts)_
+_See code: [src/commands/CGI/profiles/initConfig.ts](https://github.com/CGI-Shapsha/Salesforce-Toolbox/blob/v0.2.3/src/commands/CGI/profiles/initConfig.ts)_
 
 ## `sfdx CGI:profiles:update`
 
@@ -402,7 +402,7 @@ EXAMPLES
   $ sfdx CGI:profiles:update
 ```
 
-_See code: [src/commands/CGI/profiles/update.ts](https://github.com/CGI-Shapsha/Salesforce-Toolbox/blob/v0.2.2/src/commands/CGI/profiles/update.ts)_
+_See code: [src/commands/CGI/profiles/update.ts](https://github.com/CGI-Shapsha/Salesforce-Toolbox/blob/v0.2.3/src/commands/CGI/profiles/update.ts)_
 
 ## `sfdx CGI:translations:initConfig`
 
@@ -422,7 +422,7 @@ EXAMPLES
   $ sfdx CGI:translations:initConfig
 ```
 
-_See code: [src/commands/CGI/translations/initConfig.ts](https://github.com/CGI-Shapsha/Salesforce-Toolbox/blob/v0.2.2/src/commands/CGI/translations/initConfig.ts)_
+_See code: [src/commands/CGI/translations/initConfig.ts](https://github.com/CGI-Shapsha/Salesforce-Toolbox/blob/v0.2.3/src/commands/CGI/translations/initConfig.ts)_
 
 ## `sfdx CGI:translations:update`
 
@@ -452,5 +452,5 @@ EXAMPLES
   $ sfdx CGI:translations:update
 ```
 
-_See code: [src/commands/CGI/translations/update.ts](https://github.com/CGI-Shapsha/Salesforce-Toolbox/blob/v0.2.2/src/commands/CGI/translations/update.ts)_
+_See code: [src/commands/CGI/translations/update.ts](https://github.com/CGI-Shapsha/Salesforce-Toolbox/blob/v0.2.3/src/commands/CGI/translations/update.ts)_
 <!-- commandsstop -->
