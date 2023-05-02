@@ -311,7 +311,7 @@ const generateProfileManifest = async function (
     // Delete old manifest
     await deleteFile(manifestFilePath);
 
-    const mdtList = config.isCustomMetadataPermissions && config.customPermissions.allPermissions ?
+    const mdtList = config.isCustomMetadataPermissions && config.customMetadataTypes.allPermissions ?
         (await getMetadataList(options.connection, registry.types.customobject.name)).filter(sObject => sObject.fullName.endsWith('__mdt'))
         : undefined;
     const customSettingList = config.isCustomSettingPermissions && config.customSettings.allPermissions ?
@@ -320,18 +320,7 @@ const generateProfileManifest = async function (
     const customTabList = config.isCustomTabPermissions && config.customTabs.allPermissions ?
         await getAllCustomTabList(options.connection, options.apiVersion)
         : undefined;
-
-    /* 
-    let manifestJSON: ManifestType = {
-        Package: {
-            $: {
-                xmlns: 'http://soap.sforce.com/2006/04/metadata',
-            },
-            types: [],
-            version: apiVersion,
-        },
-    };
-    */
+    
     let manifestJSON: ManifestType = manifestJSONBase as ManifestType;
     manifestJSON.Package.version = apiVersion;
 
