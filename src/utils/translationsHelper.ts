@@ -277,8 +277,10 @@ const updateGenericObjectTranslations = async function (
                 } else {
                     const retrievedObjectTranslation = await getOjectTranslationJSON(retrievedObjectTransFilePath);
                     const localObjectTranslation = await getOjectTranslationJSON(localObjectTransFilePath);
-                    localObjectTranslation.CustomObjectTranslation[translationType] = retrievedObjectTranslation.CustomObjectTranslation[translationType];
-                    objTransJSONModified.add(localObjectTransFilePath);
+                    if  (localObjectTranslation.CustomObjectTranslation){
+                        localObjectTranslation.CustomObjectTranslation[translationType] = retrievedObjectTranslation.CustomObjectTranslation?.[translationType];
+                        objTransJSONModified.add(localObjectTransFilePath);
+                    }
                 }
             } else {
                 // sObject does not exist anymore, so delete its translations
