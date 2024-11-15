@@ -1,81 +1,191 @@
 {
   "name": "@cgi-fr/salesforce-toolbox",
-  "description": "A plugin for SFDX to make Salesforce developers' life easier ! Made by Philippe Planchon for CGI©.",
-  "version": "0.2.4",
+  "description": "A plugin for Salesforce CLI to make Salesforce developers' life easier ! Made by Philippe Planchon for CGI©.",
+  "version": "1.0.0",
   "author": "Philippe Planchon <planchon.phil@gmail.com>",
   "bugs": "https://github.com/CGI-Shapsha/Salesforce-Toolbox/issues",
   "dependencies": {
-    "@oclif/core": "^2.0.7",
-    "@salesforce/core": "^5.2.1",
-    "@salesforce/kit": "^3.0.9",
-    "@salesforce/sf-plugins-core": "^3.1.15",
-    "@salesforce/source-deploy-retrieve": "^9.7.3",
-    "tslib": "^2",
+    "@oclif/core": "^3.18.1",
+    "@salesforce/core": "^6.4.7",
+    "@salesforce/kit": "^3.0.15",
+    "@salesforce/sf-plugins-core": "^7.1.4",
+    "@salesforce/source-deploy-retrieve": "^10.3.1",
+    "jsforce": "^1.11.1",
+    "tslib": "^2.6.2",
     "xml2js": "^0.6.2"
   },
   "devDependencies": {
-    "@oclif/test": "^2",
-    "@salesforce/dev-config": "^4.0.1",
-    "@salesforce/ts-sinon": "^1",
-    "@types/chai": "^4",
-    "@types/mocha": "^10.0.1",
-    "@types/xml2js": "^0.4.11",
-    "@typescript-eslint/eslint-plugin": "^6.3.0",
-    "@typescript-eslint/parser": "^6.3.0",
-    "chai": "^4",
-    "eslint": "^8.47.0",
-    "eslint-config-oclif": "^4.0.0",
-    "eslint-config-prettier": "^9.0.0",
-    "eslint-config-salesforce": "^2.0.2",
-    "eslint-config-salesforce-typescript": "^1.1.1",
-    "eslint-plugin-header": "^3",
-    "eslint-plugin-import": "^2",
-    "eslint-plugin-jsdoc": "^46.4.6",
-    "eslint-plugin-prettier": "^5.0.0",
-    "eslint-plugin-typescript": "^0",
-    "mocha": "^10.2.0",
-    "nyc": "^15",
-    "oclif": "^3",
-    "prettier": "^3.0.1",
-    "rimraf": "^5.0.1",
-    "sinon": "15.2.0",
-    "ts-node": "^10",
-    "typescript": "5.1.6"
+    "@oclif/plugin-command-snapshot": "^5.0.2",
+    "@salesforce/cli-plugins-testkit": "^5.1.7",
+    "@salesforce/dev-config": "^4.1.0",
+    "@salesforce/dev-scripts": "^8.3.0",
+    "@types/jsforce": "^1.11.5",
+    "@types/node": "^20.11.16",
+    "@types/xml2js": "^0.4.14",
+    "eslint": "^8.56.0",
+    "eslint-plugin-sf-plugin": "^1.17.2",
+    "oclif": "^4.3.4",
+    "shx": "0.3.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
   },
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=18.0.0"
   },
   "files": [
     "/lib",
     "/messages",
-    "/npm-shrinkwrap.json",
-    "/oclif.manifest.json"
+    "/oclif.manifest.json",
+    "/oclif.lock"
   ],
-  "homepage": "https://github.com/CGI-Shapsha/Salesforce-Toolbox",
   "keywords": [
+    "force",
+    "salesforce",
+    "salesforcedx",
+    "sf",
+    "sf-plugin",
+    "sfdx",
     "sfdx-plugin"
   ],
-  "license": "MIT",
+  "license": "BSD-3-Clause",
   "oclif": {
     "commands": "./lib/commands",
-    "bin": "sfdx",
+    "bin": "sf",
+    "topicSeparator": " ",
+    "devPlugins": [
+      "@oclif/plugin-help"
+    ],
     "topics": {
-      "CGI": {
-        "description": "SFDX CLI Plugin - Open source"
+      "CGI profiles": {
+        "description": "Commands to manage profile updates."
       },
-      "CGI:profiles": {
-        "description": "Commands related to profiles actions"
+      "CGI translations": {
+        "description": "Commands to manage translations updates."
       }
+    },
+    "flexibleTaxonomy": true
+  },
+  "scripts": {
+    "build": "wireit",
+    "clean": "sf-clean",
+    "clean-all": "sf-clean all",
+    "clean:lib": "shx rm -rf lib && shx rm -rf coverage && shx rm -rf .nyc_output && shx rm -f oclif.manifest.json oclif.lock",
+    "compile": "wireit",
+    "docs": "sf-docs",
+    "format": "wireit",
+    "lint": "wireit",
+    "postinstall": "yarn husky install",
+    "postpack": "shx rm -f oclif.manifest.json oclif.lock",
+    "prepack": "sf-prepack",
+    "test": "wireit",
+    "test:nuts": "nyc mocha \"**/*.nut.ts\" --slow 4500 --timeout 600000 --parallel",
+    "test:only": "wireit",
+    "version": "oclif readme"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "wireit": {
+    "build": {
+      "dependencies": [
+        "compile",
+        "lint"
+      ]
+    },
+    "compile": {
+      "command": "tsc -p . --pretty --incremental",
+      "files": [
+        "src/**/*.ts",
+        "**/tsconfig.json",
+        "messages/**"
+      ],
+      "output": [
+        "lib/**",
+        "*.tsbuildinfo"
+      ],
+      "clean": "if-file-deleted"
+    },
+    "format": {
+      "command": "prettier --write \"+(src|test|schemas)/**/*.+(ts|js|json)|command-snapshot.json\"",
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "schemas/**/*.json",
+        "command-snapshot.json",
+        ".prettier*"
+      ],
+      "output": []
+    },
+    "lint": {
+      "command": "eslint src test --color --cache --cache-location .eslintcache",
+      "files": [
+        "src/**/*.ts",
+        "messages/**",
+        "**/.eslint*",
+        "**/tsconfig.json"
+      ],
+      "output": []
+    },
+    "test:compile": {
+      "command": "tsc -p \"./test\" --pretty",
+      "files": [
+        "test/**/*.ts",
+        "**/tsconfig.json"
+      ],
+      "output": []
+    },
+    "test": {
+      "dependencies": [
+        "test:compile",
+        "test:only",
+        "lint"
+      ]
+    },
+    "test:only": {
+      "command": "nyc mocha \"test/**/*.test.ts\"",
+      "env": {
+        "FORCE_COLOR": "2"
+      },
+      "files": [
+        "test/**/*.ts",
+        "src/**/*.ts",
+        "**/tsconfig.json",
+        ".mocha*",
+        "!*.nut.ts",
+        ".nycrc"
+      ],
+      "output": []
+    },
+    "test:command-reference": {
+      "command": "\"./bin/dev\" commandreference:generate --erroronwarnings",
+      "files": [
+        "src/**/*.ts",
+        "messages/**",
+        "package.json"
+      ],
+      "output": [
+        "tmp/root"
+      ]
+    },
+    "test:deprecation-policy": {
+      "command": "\"./bin/dev\" snapshot:compare",
+      "files": [
+        "src/**/*.ts"
+      ],
+      "output": [],
+      "dependencies": [
+        "compile"
+      ]
+    },
+    "test:json-schema": {
+      "command": "\"./bin/dev\" schema:compare",
+      "files": [
+        "src/**/*.ts",
+        "schemas"
+      ],
+      "output": []
     }
   },
-  "repository": "CGI-Shapsha/Salesforce-Toolbox",
-  "scripts": {
-    "build": "tsc -p .",
-    "lint": "eslint src/**/*.ts test/**/*.ts",
-    "postpack": "rimraf oclif.manifest.json",
-    "posttest": "eslint src/**/*.ts test/**/*.ts",
-    "prepack": "rimraf lib && tsc -b && oclif manifest && oclif readme",
-    "test": "nyc --extension .ts --require ts-node/register mocha --forbid-only \"test/**/*.test.ts\"",
-    "version": "oclif readme && git add README.md"
-  }
+  "exports": "./lib/index.js",
+  "type": "module"
 }

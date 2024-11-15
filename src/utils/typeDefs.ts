@@ -1,4 +1,10 @@
-import { Connection, NamedPackageDir } from '@salesforce/core';
+/*
+ * Copyright (c) 2023, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+import { NamedPackageDir, Connection } from '@salesforce/core';
 import { SfCommand } from '@salesforce/sf-plugins-core';
 import {
     Profile,
@@ -23,8 +29,24 @@ import {
     ProfileTabVisibility,
     ProfileUserPermission,
     CustomObjectTranslation,
-    Translations
-} from 'jsforce/lib/api/metadata';
+    Translations,
+    ObjectNameCaseValue,
+    FieldSetTranslation,
+    CustomFieldTranslation,
+    LayoutTranslation,
+    QuickActionTranslation,
+    RecordTypeTranslation,
+    SharingReasonTranslation,
+    StandardFieldTranslation,
+    ValidationRuleTranslation,
+    WebLinkTranslation,
+    WorkflowTaskTranslation,
+    CustomApplicationTranslation,
+    CustomLabelTranslation,
+    FlowDefinitionTranslation,
+    GlobalQuickActionTranslation,
+    ReportTypeTranslation
+} from '@salesforce/core/node_modules/jsforce/lib/api/metadata.js';
 
 export type ProfileItem =
       ProfileActionOverride
@@ -90,6 +112,21 @@ export type sObjectTransConfigType = {
     webLinks?: GenericTransConfigType;
     workflowTasks?: GenericTransConfigType;
 }
+
+export type sObjectTransKeySubset = 'fields' | 'layouts' | 'fieldSets' | 'quickActions' | 'recordTypes' | 'sharingReasons' | 'validationRules' | 'webLinks' | 'workflowTasks' | 'caseValues';
+
+export type sObjectTransArrayTypes = 
+    | ObjectNameCaseValue
+    | FieldSetTranslation
+    | CustomFieldTranslation
+    | LayoutTranslation
+    | QuickActionTranslation
+    | RecordTypeTranslation
+    | SharingReasonTranslation
+    | StandardFieldTranslation
+    | ValidationRuleTranslation
+    | WebLinkTranslation
+    | WorkflowTaskTranslation;
 
 export type GenericPermConfigType = {
     allPermissions?: boolean;
@@ -169,7 +206,7 @@ export type TranslationConfigType = {
 }
 
 export type UpdaterOptionsType = {
-    configPath: string;
+    configPath: string | undefined;
     orgUsername: string;
     projectPath: string;
     projectPackDir: NamedPackageDir[];
@@ -188,8 +225,10 @@ export type ParsedProfile = {
     Profile: ProfileCustom;
 }
 
-export type ProfileCustom = Profile & {
-    customSettingAccesses: ProfileCustomSettingAccesses[];
+export type ProfileCustom = Omit<Profile, 'externalDataSourceAccesses' | 'loginIpRanges'> & {
+    externalDataSourceAccesses?: ProfileExternalDataSourceAccess[];
+    loginIpRanges?: ProfileLoginIpRange[];
+    customSettingAccesses?: ProfileCustomSettingAccesses[];
 }
 
 export type ProfileCustomSettingAccesses = {
@@ -216,3 +255,12 @@ export type ParsedCustomObjectTranslation = {
 export type ParsedTranslation = {
     Translations: Translations;
 }
+
+export type TransKeySubset = 'customApplications' | 'customLabels' | 'flowDefinitions' | 'quickActions' | 'reportTypes';
+
+export type TransArrayTypes = 
+    | CustomApplicationTranslation
+    | CustomLabelTranslation
+    | FlowDefinitionTranslation
+    | GlobalQuickActionTranslation
+    | ReportTypeTranslation;

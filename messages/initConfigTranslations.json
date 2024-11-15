@@ -1,6 +1,0 @@
-{
-    "commandDescription": "Initialize the config file to run 'sfdx CGI:translations:update' command",
-    "examples": [
-      "sfdx CGI:translations:initConfig"
-    ]
-}

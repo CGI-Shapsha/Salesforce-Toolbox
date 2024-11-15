@@ -1,13 +1,19 @@
+/*
+ * Copyright (c) 2023, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
 /* eslint-disable no-await-in-loop */
-import * as path from 'path';
+import * as path from 'node:path';
 import { SfError } from '@salesforce/core';
 import { Spinner } from '@salesforce/sf-plugins-core';
 import { registry, SourceComponent } from '@salesforce/source-deploy-retrieve';
-import * as utils from './utils';
-import * as translationsHelper from './translationsHelper';
-import { translationConfigFileName, manifestFileName, tempProjectDirName, workingDirName } from './constants';
-import { checkWorkingDir, deleteDirRecursive } from './dirManagment';
-import { UpdaterOptionsType } from './typeDefs';
+import * as utils from './utils.js';
+import * as translationsHelper from './translationsHelper.js';
+import { translationConfigFileName, manifestFileName, tempProjectDirName, workingDirName } from './constants.js';
+import { checkWorkingDir, deleteDirRecursive } from './dirManagment.js';
+import { UpdaterOptionsType } from './typeDefs.js';
 
 export class TranslationUpdater {
     // eslint-disable-next-line complexity
@@ -91,16 +97,20 @@ export class TranslationUpdater {
         options.rootClass.spinner = new Spinner(true);
         options.rootClass.spinner.start('Initializing Update', 'In progress');
 
-        let retrievedTranslations: SourceComponent[];
+        let retrievedTranslations: SourceComponent[] | undefined;
         if (config.isFieldTranslations || isObjectTranslations || isTranslations) {
             retrievedTranslations = utils.loadTranslationsFromPackageDirectories(projectPath, sObjectTranslationSet, isTranslations, undefined, [
                 path.join(workingDirName, tempProjectDirName),
             ]);
+        } else {
+            retrievedTranslations = undefined;
         }
 
-        let existingTranslations: SourceComponent[];
+        let existingTranslations: SourceComponent[] | undefined;
         if (isObjectTranslationsWithNamedItems || isTranslationsWithNamedItems) {
             existingTranslations = utils.loadTranslationsFromPackageDirectories(projectPath, sObjectTranslationSet, isTranslationsWithNamedItems, projectPackDir);
+        } else {
+            existingTranslations = undefined;
         }
 
         options.rootClass.spinner.stop('✔️\n');

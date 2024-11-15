@@ -1,6 +1,12 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import { workingDirName, profileConfigFileName, translationConfigFileName, exampleProfileConfig, exampleTranslationConfig } from './constants';
+/*
+ * Copyright (c) 2023, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { workingDirName, profileConfigFileName, translationConfigFileName, exampleProfileConfig, exampleTranslationConfig } from './constants.js';
 
 const checkWorkingDir = async function (projectPath: string): Promise<string> {
     const workingDirPath = path.join(projectPath, workingDirName);
@@ -15,7 +21,10 @@ const checkWorkingDir = async function (projectPath: string): Promise<string> {
  *
  * @param projectPath path to the sfdx project root dir
  */
-const startProfileInit = async function (projectPath: string): Promise<string> {
+const startProfileInit = async function (projectPath?: string): Promise<string> {
+    if(!projectPath) {
+        throw new Error('error in startProfileInit : projectPath is mandatory');
+    }
     const workingDirPath = await checkWorkingDir(projectPath);
 
     const configFilePath: fs.PathLike = path.join(workingDirPath, profileConfigFileName);
@@ -29,7 +38,10 @@ const startProfileInit = async function (projectPath: string): Promise<string> {
  *
  * @param projectPath path to the sfdx project root dir
  */
-const startTranslationInit = async function (projectPath: string): Promise<string> {
+const startTranslationInit = async function (projectPath?: string): Promise<string> {
+    if(!projectPath) {
+        throw new Error('error in startProfileInit : projectPath is mandatory');
+    }
     const workingDirPath = await checkWorkingDir(projectPath);
 
     const configFilePath: fs.PathLike = path.join(workingDirPath, translationConfigFileName);
@@ -57,7 +69,8 @@ const deleteDirRecursive = async function (dirPath: string): Promise<void> {
  *
  * @param filePath path to the file to delete
  */
-const deleteFile = async function (filePath: string): Promise<void> {
+const deleteFile = async function (filePath: string | undefined): Promise<void> {
+    if(!filePath) return;
     if(fs.existsSync(filePath) && fs.lstatSync(filePath).isFile()){
         await fs.promises.rm(filePath, { force: true });
     }
@@ -81,7 +94,10 @@ const deleteFiles = async function (dirPath: string, fileList: string[]): Promis
  * @param sourcePath path to the source file
  * @param destinationPath destination file path
  */
-const copyFile = async function (sourcePath: string, destinationPath: string): Promise<void> {
+const copyFile = async function (sourcePath?: string, destinationPath?: string): Promise<void> {
+    if (!sourcePath || !destinationPath) {
+        return;
+    }
     const destDirName = path.dirname(destinationPath);
     if (!fs.existsSync(destDirName)) {
         await fs.promises.mkdir(destDirName, {recursive: true});

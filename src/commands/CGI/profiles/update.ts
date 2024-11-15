@@ -1,43 +1,58 @@
-import * as os from 'os';
+/*
+ * Copyright (c) 2023, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
 import { SfCommand, Flags } from '@salesforce/sf-plugins-core';
-import { Messages } from '@salesforce/core';
-import { ProfileUpdater } from '../../../utils/profileUpdater';
-import { UpdaterOptionsType, UpdateOutput } from '../../../utils/typeDefs';
+import { Messages, SfError, Org } from '@salesforce/core';
+import { FlagInput, FlagOutput } from '@oclif/core/lib/interfaces/parser.js';
+import { ProfileUpdater } from '../../../utils/profileUpdater.js';
+import { UpdaterOptionsType, UpdateOutput } from '../../../utils/typeDefs.js';
 
-Messages.importMessagesDirectory(__dirname);
-const messages = Messages.loadMessages('@cgi-fr/salesforce-toolbox', 'profilePermissionsUpdate');
+Messages.importMessagesDirectoryFromMetaUrl(import.meta.url);
+const messages = Messages.loadMessages('@cgi-fr/salesforce-toolbox', 'CGI.profiles.update');
 
 export default class Update extends SfCommand<UpdateOutput> {
-    public static description = messages.getMessage('commandDescription');
-    public static examples = messages.getMessage('examples').split(os.EOL);
+    public static readonly summary = messages.getMessage('summary');
+    public static readonly description = messages.getMessage('description');
+    public static readonly examples = messages.getMessages('examples');
+    public static readonly requiresProject = true;
 
-    public static flags = {
-        'target-org': Flags.requiredOrg({
-          char: 'o',
-        }),
+    public static readonly flags: FlagInput<FlagOutput> = {
+        'target-org': Flags.requiredOrg(),
         config: Flags.file({
             char: 'c',
-            description: messages.getMessage('configFlagDescription'),
+            summary: messages.getMessage('flags.config.summary'),
+            description: messages.getMessage('flags.config.description'),
         }),
     };
 
-    public static requiresUsername = true;
-    public static supportsDevhubUsername = true;
-    public static requiresProject = true;
-
     public async run(): Promise<UpdateOutput> {
+
         const { flags } = await this.parse(Update);
-        const org = flags['target-org'];
-        const conn = org.getConnection();
-        
+        const org: Org = flags['target-org'] as Org;
+        const maxApiVersion = await org.retrieveMaxApiVersion();
+        const conn = org.getConnection(maxApiVersion);
+
+        const orgUsername = org.getUsername();
+        const projectPath = this.project?.getPath();
+        const projectPackDir = this.project?.getPackageDirectories() ? this.project.getPackageDirectories() : [];
+        if(!orgUsername) {
+            throw new SfError('An error occured : this command required a Salesforce connection');
+        }
+        if(!projectPath) {
+            throw new SfError('An error occured : this command required a SF / SDFX Project');
+        }
+      
         const options: UpdaterOptionsType = {
-            configPath: flags.config,
-            orgUsername: org.getUsername(),
-            projectPath: this.project.getPath(),
-            projectPackDir: this.project.getPackageDirectories(),
-            apiVersion: await org.retrieveMaxApiVersion(),
+            configPath: flags.config as string,
+            orgUsername,
+            projectPath,
+            projectPackDir,
+            apiVersion: maxApiVersion,
             connection: conn,
-            rootClass: this,
+          rootClass: this,
         }
         await ProfileUpdater.doUpdate(options);
         return { success: true };

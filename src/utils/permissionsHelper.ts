@@ -1,4 +1,10 @@
-import { ProfileConfigType, GenericPermConfigType, ProfileCustom } from './typeDefs';
+/*
+ * Copyright (c) 2023, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+import { ProfileConfigType, GenericPermConfigType, ProfileCustom } from './typeDefs.js';
 
 
 const updateFieldPermissions = function (
@@ -433,12 +439,14 @@ const getAllObjectPermissionsToUpdate = function (config: ProfileConfigType): st
     if(!objectPermissionsToUpdate) {
         const ret: string[][] = [];
     
-        config.sObjects.forEach((sObj) => {
-            if (sObj.retrieveObjectPermissions) {
-                ret.push([sObj.apiName.trim()]);
-            }
-        });
-        objectPermissionsToUpdate = removeDuplicatesFromArray(ret)
+        if(Array.isArray(config.sObjects)){
+            config.sObjects.forEach((sObj) => {
+                if (sObj.retrieveObjectPermissions) {
+                    ret.push([sObj.apiName.trim()]);
+                }
+            });
+            objectPermissionsToUpdate = removeDuplicatesFromArray(ret);
+        }
     }
     return objectPermissionsToUpdate;
 }
@@ -448,16 +456,18 @@ const getAllFieldsPermissionsToUpdate = function (config: ProfileConfigType): st
     if(!fieldsPermissionsToUpdate) {
         const ret: string[][] = [];
 
-        config.sObjects.forEach((sObj) => {
-            if (sObj.fields.allPermissions) {
-                ret.push([`${sObj.apiName}.*`]);
-            } else if (sObj.fields.permissionsFor && sObj.fields.permissionsFor.length > 0) {
-                sObj.fields.permissionsFor.forEach((field) => {
-                    ret.push([`${sObj.apiName.trim()}.${field.trim()}`]);
-                });
-            }
-        });
-        fieldsPermissionsToUpdate = removeDuplicatesFromArray(ret);
+        if(Array.isArray(config.sObjects)){
+            config.sObjects.forEach((sObj) => {
+                if (sObj.fields && sObj.fields.allPermissions) {
+                    ret.push([`${sObj.apiName}.*`]);
+                } else if (sObj.fields?.permissionsFor && sObj.fields.permissionsFor.length > 0) {
+                    sObj.fields.permissionsFor.forEach((field) => {
+                        ret.push([`${sObj.apiName.trim()}.${field.trim()}`]);
+                    });
+                }
+            });
+            fieldsPermissionsToUpdate = removeDuplicatesFromArray(ret);
+        }
     }
     return fieldsPermissionsToUpdate;
 }
@@ -467,12 +477,14 @@ const getAllRecordTypePermissionsToUpdate = function (config: ProfileConfigType)
     if(!recordTypePermissionsToUpdate) {
         const ret: string[][] = [];
 
-        config.sObjects.forEach((sObj) => {
-            if (sObj.retrieveRecordTypeVisibilities) {
-                ret.push([sObj.apiName.trim()]);
-            }
-        });
-        recordTypePermissionsToUpdate = removeDuplicatesFromArray(ret);
+        if(Array.isArray(config.sObjects)){
+            config.sObjects.forEach((sObj) => {
+                if (sObj.retrieveRecordTypeVisibilities) {
+                    ret.push([sObj.apiName.trim()]);
+                }
+            });
+            recordTypePermissionsToUpdate = removeDuplicatesFromArray(ret);
+        }
     }
     return recordTypePermissionsToUpdate;
 }
@@ -482,25 +494,33 @@ const getAllLayoutPermissionsToUpdate = function (config: ProfileConfigType): st
     if(!layoutPermissionsToUpdate) {
         const ret: string[][] = [];
 
-        config.sObjects.forEach((sObj) => {
-            if (sObj.retrieveLayoutAssignments) {
-                ret.push([sObj.apiName.trim() + '-']);
-            }
-        });
-        layoutPermissionsToUpdate = removeDuplicatesFromArray(ret);
+        if(Array.isArray(config.sObjects)){
+            config.sObjects.forEach((sObj) => {
+                if (sObj.retrieveLayoutAssignments) {
+                    ret.push([sObj.apiName.trim() + '-']);
+                }
+            });
+            layoutPermissionsToUpdate = removeDuplicatesFromArray(ret);
+        }
     }
     return layoutPermissionsToUpdate;
 }
 
 const genericPermissionsToUpdate: {[key: string]: string[][]} = {};
-const getAllGenericPermissionsToUpdate = function (genericConfig: GenericPermConfigType, type: string): string[][] {
+const getAllGenericPermissionsToUpdate = function (genericConfig?: GenericPermConfigType, type?: string): string[][] {
+    if(!genericConfig) {
+        throw new Error('error in getAllGenericPermissionsToUpdate : genericConfig is mandatory');
+    }
+    if(!type) {
+        throw new Error('error in getAllGenericPermissionsToUpdate : type is mandatory');
+    }
     if (!genericPermissionsToUpdate[type]) {
         genericPermissionsToUpdate[type] = [];
         const ret: string[][] = [];
     
         if (genericConfig.allPermissions) {
             ret.push(['*']);
-        } else {
+        } else if (Array.isArray(genericConfig.permissionsFor)){
             genericConfig.permissionsFor.forEach((element) => {
                 ret.push([element.trim()]);
             });

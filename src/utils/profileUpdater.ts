@@ -1,12 +1,19 @@
+/*
+ * Copyright (c) 2023, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
 /* eslint-disable no-await-in-loop */
-import * as path from 'path';
+
+import * as path from 'node:path';
 import { SfError } from '@salesforce/core';
 import { Progress, Spinner } from '@salesforce/sf-plugins-core';
-import * as utils from './utils';
-import * as permsHelper from './permissionsHelper';
-import { profileConfigFileName, manifestFileName, tempProjectDirName, workingDirName } from './constants';
-import { checkWorkingDir, deleteDirRecursive } from './dirManagment';
-import { ParsedProfile, ProfileCustom, UpdaterOptionsType } from './typeDefs';
+import * as utils from './utils.js';
+import * as permsHelper from './permissionsHelper.js';
+import { profileConfigFileName, manifestFileName, tempProjectDirName, workingDirName } from './constants.js';
+import { checkWorkingDir, deleteDirRecursive } from './dirManagment.js';
+import { ParsedProfile, ProfileCustom, UpdaterOptionsType } from './typeDefs.js';
 
 export class ProfileUpdater {
     // eslint-disable-next-line complexity
@@ -211,7 +218,7 @@ export class ProfileUpdater {
                     updatedProfile
                 );
             }
-
+            
             currentProfileJSON = utils.sortProfile(currentProfileJSON);
 
             await utils.writeXml(profileInfo.path, currentProfileJSON);

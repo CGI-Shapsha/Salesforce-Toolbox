@@ -1,9 +1,0 @@
-{
-  "commandDescription": "Update all profiles with permissions retrieved from a specified Org, according to the config file.",
-  "configFlagDescription": "Path to the config file - Optionnal. If not provided, it will be loaded from the default location. If it does not exist, throw an error.",
-  "examples": [
-    "sfdx CGI:profiles:update --target-org myOrg@example.com --config ./config.json",
-    "sfdx CGI:profiles:update -o myOrgAlias -c ./config.json",
-    "sfdx CGI:profiles:update"
-  ]
-}

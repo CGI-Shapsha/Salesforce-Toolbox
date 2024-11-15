@@ -1,14 +1,19 @@
-import { promisify } from 'util';
-import * as fs from 'fs';
-import * as path from 'path';
+/*
+ * Copyright (c) 2023, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+import { promisify } from 'node:util';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import * as xml2js from 'xml2js';
 import { ComponentSet, MetadataResolver, registry, SourceComponent } from '@salesforce/source-deploy-retrieve';
 import { Connection, NamedPackageDir, SfError } from '@salesforce/core';
-import { FileProperties } from 'jsforce/lib/api/metadata';
-import { ListMetadataQuery } from '@salesforce/source-deploy-retrieve/lib/src/client/types';
+import { FileProperties, CustomObjectTranslation, Translations } from '@salesforce/core/node_modules/jsforce/lib/api/metadata.js';
+import { ListMetadataQuery } from '@salesforce/source-deploy-retrieve/lib/src/client/types.js';
 import { SfCommand, Spinner } from '@salesforce/sf-plugins-core';
-import { CustomObjectTranslation, Translations } from 'jsforce/lib/api/metadata';
-import { deleteDirRecursive, deleteFile } from './dirManagment';
+import { deleteDirRecursive, deleteFile } from './dirManagment.js';
 import {
     ProfileItem,
     ProfileConfigType,
@@ -23,14 +28,16 @@ import {
     UpdateOutput,
     UpdaterOptionsType,
     GenericTransConfigType,
-    SimpleToolingResponse
-} from './typeDefs';
-import { manifestJSONBase } from './constants';
+    SimpleToolingResponse,
+    sObjectTransArrayTypes,
+    TransArrayTypes
+} from './typeDefs.js';
+import { emptyObjTranslation, emptyProfile, emptyTranslation, manifestJSONBase } from './constants.js';
 
 const sortProfile = function (profileJson: ParsedProfile): ParsedProfile {
-    if (!profileJson || !Object.prototype.hasOwnProperty.call(profileJson, 'Profile')) return undefined;
+    if (!profileJson || !Object.prototype.hasOwnProperty.call(profileJson, 'Profile')) return profileJson;
 
-    const profile: ProfileCustom = profileJson.Profile;
+    const profile = profileJson.Profile;
     const sortMapping = {
         applicationVisibilities: 'application',
         classAccesses: 'apexClass',
@@ -46,30 +53,38 @@ const sortProfile = function (profileJson: ParsedProfile): ParsedProfile {
         tabVisibilities: 'tab',
         userPermissions: 'name',
     };
+    type SortMappingKeyType = keyof typeof sortMapping;
 
-    for (const [metaType, propForSort] of Object.entries(sortMapping)) {
-        if (Object.prototype.hasOwnProperty.call(profile, metaType)) {
-            if(!profile[metaType]) {
-                delete profile[metaType];
+    for(const metaName of Object.keys(sortMapping) as SortMappingKeyType[]) {
+        if (Object.prototype.hasOwnProperty.call(profile, metaName)) {
+            if(!profile[metaName]) {
+                delete profile[metaName];
                 continue;
             }
-            profile[metaType] = customSort(profile[metaType], propForSort);
+
+            customSort<ProfileItem>(profile[metaName] as ProfileItem[], sortMapping[metaName]);
         }
     }
 
-    profileJson.Profile = Object.keys(profile)
+    profileJson.Profile = (Object.keys(profile) as Array<keyof ProfileCustom>)
         .sort()
-        .reduce((obj, key: string) => {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-            obj[key] = profile[key];
+        .reduce<ProfileCustom>((obj, key) => {
+            (obj[key] as unknown) = profile[key];
             return obj;
-        }, {}) as ProfileCustom;
+        }, {...emptyProfile});
+
+    // delete empty keys
+    for(const metaName of Object.keys(profileJson.Profile) as Array<keyof ProfileCustom>) {
+        if(!profileJson.Profile[metaName] || (profileJson.Profile[metaName] as unknown[]).length === 0 || Object.keys(profileJson.Profile[metaName] as ProfileItem[]).length === 0) {
+            delete profileJson.Profile[metaName];
+        }
+    }
 
     return profileJson;
 }
 
 const sortObjTranslation = function (objTranslation: CustomObjectTranslation): CustomObjectTranslation {
-    if (!objTranslation) return undefined;
+    if (!objTranslation) return objTranslation;
 
     const sortMapping = {
         caseValues: undefined,
@@ -82,72 +97,87 @@ const sortObjTranslation = function (objTranslation: CustomObjectTranslation): C
         webLinks: 'name',
         workflowTasks: 'name'
     };
+    type SortMappingKeyType = keyof typeof sortMapping;
 
-    for (const [metaType, propForSort] of Object.entries(sortMapping)) {
+    for (const metaType of Object.keys(sortMapping) as SortMappingKeyType[]) {
         if (Object.prototype.hasOwnProperty.call(objTranslation, metaType)) {
             if(!objTranslation[metaType]) {
                 delete objTranslation[metaType];
                 continue;
             }
-            if (propForSort) {
-                objTranslation[metaType] = customSort(objTranslation[metaType], propForSort);
+            if (sortMapping[metaType]) {
+                customSort(objTranslation[metaType] as sObjectTransArrayTypes[], sortMapping[metaType]);
             }
         }
     }
 
-    objTranslation = Object.keys(objTranslation)
+    objTranslation = (Object.keys(objTranslation) as Array<keyof CustomObjectTranslation>)
         .sort()
-        .reduce((obj, key: string) => {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-            obj[key] = objTranslation[key];
+        .reduce<CustomObjectTranslation>((obj, key) => {
+            (obj[key] as unknown) = objTranslation[key];
             return obj;
-        }, {}) as CustomObjectTranslation;
+        }, {...emptyObjTranslation});
+
+    // delete empty keys
+    for(const metaName of Object.keys(objTranslation) as Array<keyof CustomObjectTranslation>) {
+        if(!objTranslation[metaName] || (objTranslation[metaName] as unknown[]).length === 0 || Object.keys(objTranslation[metaName] as sObjectTransArrayTypes[]).length === 0) {
+            delete objTranslation[metaName];
+        }
+    }
 
     return objTranslation;
 }
 
 const sortTranslation = function (translation: Translations): Translations {
-    if (!translation) return undefined;
+    if (!translation) return translation;
 
     const sortMapping = {
-        bots: undefined,
+        // bots: undefined,
         customApplications	: 'name',
         customLabels: 'name',
-        customPageWebLinks: 'name',
-        customTabs: 'name',
+        // customPageWebLinks: 'name',
+        // customTabs: 'name',
         flowDefinitions: 'fullName',
-        pipelineInspMetricConfigs: undefined,
-        prompts: undefined,
+        // pipelineInspMetricConfigs: undefined,
+        // prompts: undefined,
         quickActions: 'name',
         reportTypes: 'name',
-        scontrols: 'name'
+        // scontrols: 'name'
     };
+    type SortMappingKeyType = keyof typeof sortMapping;
 
-    for (const [metaType, propForSort] of Object.entries(sortMapping)) {
+    for (const metaType of Object.keys(sortMapping) as SortMappingKeyType[]) {
         if (Object.prototype.hasOwnProperty.call(translation, metaType)) {
             if(!translation[metaType]) {
                 delete translation[metaType];
                 continue;
             }
-            if (propForSort) {
-                translation[metaType] = customSort(translation[metaType], propForSort);
+            if (sortMapping[metaType]) {
+                customSort(translation[metaType] as TransArrayTypes[], sortMapping[metaType]);
             }
         }
     }
 
-    translation = Object.keys(translation)
+    translation = (Object.keys(translation) as Array<keyof Translations>)
         .sort()
-        .reduce((obj, key: string) => {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-            obj[key] = translation[key];
+        .reduce<Translations>((obj, key) => {
+            (obj[key] as unknown) = translation[key];
             return obj;
-        }, {}) as Translations;
+        }, {...emptyTranslation});
+
+    // delete empty keys
+    for(const metaName of Object.keys(translation) as Array<keyof Translations>) {
+        if(!translation[metaName] || (translation[metaName] as unknown[]).length === 0 || Object.keys(translation[metaName] as TransArrayTypes[]).length === 0) {
+            delete translation[metaName];
+        }
+    }
 
     return translation;
 }
 
-const customSort = function (arr: [], prop: string): [] {
-    return arr.sort((a: ProfileItem, b: ProfileItem): number => a[prop] < b[prop] ? -1 : 1);
+const customSort = function<T> (arr: T[], prop: string | undefined): T[] {
+    if(!prop) return arr;
+    return arr.sort((a, b): number => a[prop as keyof T] < b[prop as keyof T] ? -1 : 1);
 }
 
 // eslint-disable-next-line complexity
@@ -182,8 +212,8 @@ const getProfileConfig = async function (configPath: string): Promise<ProfileCon
         || config.isCustomMetadataPermissions
         || config.isCustomPermissionPermissions
         || config.isCustomSettingPermissions
-        || config.loginIpRanges
-        || config.loginHours
+        || !!config.loginIpRanges
+        || !!config.loginHours
         || config.isCustomTabPermissions
         || config.isUserPermissions
         || config.isExternalDataSource)) {
@@ -205,7 +235,7 @@ const getTranslationConfig = async function (configPath: string): Promise<Transl
     const config = JSON.parse(await fs.promises.readFile(configPath, 'utf-8')) as TranslationConfigType;
 
     config.isRenameTranslations = !!config.sObjects && !!config.sObjects.find(sObj => sObj.retrieveObjectRenameTranslations === true);
-    config.isFieldTranslations = !!config.sObjects && !!config.sObjects.find(sObj => (sObj.fields?.allTranslations || sObj.fields?.translationsFor && sObj.fields.translationsFor.length > 0));
+    config.isFieldTranslations = !!config.sObjects && !!config.sObjects.find(sObj => (!!sObj.fields?.allTranslations || (sObj.fields?.translationsFor && sObj.fields.translationsFor.length > 0)));
     config.isLayoutTranslationsWithNamedItems = !!config.sObjects && !!config.sObjects.find(sObj => !sObj.layouts?.allTranslations && sObj.layouts?.translationsFor && sObj.layouts.translationsFor.length > 0);
     config.isLayoutTranslations = config.isLayoutTranslationsWithNamedItems || (!!config.sObjects && !!config.sObjects.find(sObj => !!sObj.layouts?.allTranslations));
     config.isFieldSetTranslationsWithNamedItems = !!config.sObjects && !!config.sObjects.find(sObj => !sObj.fieldSets?.allTranslations && sObj.fieldSets?.translationsFor && sObj.fieldSets.translationsFor.length > 0);
@@ -261,13 +291,13 @@ const getTranslationConfig = async function (configPath: string): Promise<Transl
     return config;
 }
 
-const checkGenericPermConfig = function (genericConfig: GenericPermConfigType): boolean {
+const checkGenericPermConfig = function (genericConfig: GenericPermConfigType | undefined): boolean {
     if (!genericConfig) return false;
 
-    return (genericConfig.allPermissions || (!!genericConfig.permissionsFor && genericConfig.permissionsFor.length > 0));
+    return (genericConfig.allPermissions ?? (!!genericConfig.permissionsFor && genericConfig.permissionsFor.length > 0));
 }
 
-const checkGenericTransConfig = function (genericConfig: GenericTransConfigType): { isTranslations: boolean; isTranslationsWithNamedItems: boolean } {
+const checkGenericTransConfig = function (genericConfig: GenericTransConfigType | undefined): { isTranslations: boolean; isTranslationsWithNamedItems: boolean } {
     let isTranslations = false;
     let isTranslationsWithNamedItems = false;
     if (genericConfig) {
@@ -311,17 +341,17 @@ const generateProfileManifest = async function (
     // Delete old manifest
     await deleteFile(manifestFilePath);
 
-    const mdtList = config.isCustomMetadataPermissions && config.customMetadataTypes.allPermissions ?
+    const mdtList = config.isCustomMetadataPermissions && config.customMetadataTypes?.allPermissions ?
         (await getMetadataList(options.connection, registry.types.customobject.name)).filter(sObject => sObject.fullName.endsWith('__mdt'))
         : undefined;
-    const customSettingList = config.isCustomSettingPermissions && config.customSettings.allPermissions ?
+    const customSettingList = config.isCustomSettingPermissions && config.customSettings?.allPermissions ?
         await getAllCustomSettingList(options.connection)
         : undefined;
-    const customTabList = config.isCustomTabPermissions && config.customTabs.allPermissions ?
+    const customTabList = config.isCustomTabPermissions && config.customTabs?.allPermissions ?
         await getAllCustomTabList(options.connection, options.apiVersion)
         : undefined;
     
-    let manifestJSON: ManifestType = manifestJSONBase as ManifestType;
+    let manifestJSON = {...manifestJSONBase};
     manifestJSON.Package.version = apiVersion;
 
     if ( config.isObjectPermissions
@@ -334,6 +364,7 @@ const generateProfileManifest = async function (
         manifestJSON = addSObjectsToManifest(manifestJSON, config, mdtList, customSettingList, customTabList);
     }
 
+    config.sObjects = config.sObjects ?? [];
     if (config.isLayoutAssignments) {
         const sObjectAPINames: Set<string> = new Set<string>();
         for (const sObject of config.sObjects) {
@@ -389,21 +420,11 @@ const generateTranslationManifest = async function (
     // Delete old manifest
     await deleteFile(manifestFilePath);
 
-    let sObjectTranslationSet: Set<string> ;
-    /* 
-    let manifestJSON: ManifestType = {
-        Package: {
-            $: {
-                xmlns: 'http://soap.sforce.com/2006/04/metadata',
-            },
-            types: [],
-            version: apiVersion,
-        },
-    };
-    */
-    let manifestJSON: ManifestType = manifestJSONBase as ManifestType;
+    let sObjectTranslationSet: Set<string> = new Set<string>();
+    let manifestJSON = {...manifestJSONBase};
     manifestJSON.Package.version = apiVersion;
 
+    config.sObjects = config.sObjects ?? [];
     if (config.isLayoutTranslations) {
         const fullLayoutList = await getMetadataList(connection, registry.types.layout.name);
         const sObjectAPINamesForAllLayouts: Set<string> = new Set<string>();
@@ -448,7 +469,7 @@ const generateTranslationManifest = async function (
         const fullWorkflowList = await getMetadataList(connection, registry.types.workflow.name);
         const sObjectAPINamesForWorkflowTasks: Set<string> = new Set<string>();
         for (const sObject of config.sObjects) {
-            if (sObject.workflowTasks?.allTranslations
+            if (!!sObject.workflowTasks?.allTranslations
                 || (sObject.workflowTasks?.translationsFor && sObject.workflowTasks.translationsFor.length > 0)
             ) {
                 sObjectAPINamesForWorkflowTasks.add(sObject.apiName);
@@ -530,42 +551,44 @@ const generateTranslationManifest = async function (
 const addSObjectsToManifest = function(
     manifestJSON: ManifestType,
     config: ProfileConfigType,
-    cmtList: FileProperties[],
-    customSetingList: string[],
-    customTabList: CustomTabLightType[]
+    cmtList: FileProperties[] | undefined,
+    customSetingList: string[] | undefined,
+    customTabList: CustomTabLightType[] | undefined
 ): ManifestType {
 
     const sObjectSet: Set<string> = new Set<string>();
     const customObjectsMembers: TypeMembersType[] = [];
 
-    if ( config.isObjectPermissions
+    config.sObjects = config.sObjects ?? [];
+    if (
+        config.isObjectPermissions
         || config.isFieldPermissions
         || config.isRecordTypePermissions
-        || config.isLayoutAssignments) {
+        || config.isLayoutAssignments
+    ) {
         for (const sObject of config.sObjects) {
             sObjectSet.add(sObject.apiName);
         }
     }
 
     if (config.isCustomMetadataPermissions) {
-        if (config.customMetadataTypes.allPermissions) {
+        if (config.customMetadataTypes!.allPermissions && !!cmtList) {
             for (const cmt of cmtList) {
                 sObjectSet.add(cmt.fullName);
             }
-        } else if (config.customMetadataTypes.permissionsFor.length > 0){
+        } else if (config.customMetadataTypes?.permissionsFor && config.customMetadataTypes.permissionsFor.length > 0){
             for (const cmt of config.customMetadataTypes.permissionsFor) {
                 sObjectSet.add(cmt);
             }
-
         }
     }
 
-    if (config.isCustomSettingPermissions) {
-        if (config.customSettings.allPermissions) {
+    if (config.isCustomSettingPermissions && config.customSettings) {
+        if (config.customSettings.allPermissions && !!customSetingList) {
             for (const custSet of customSetingList) {
                 sObjectSet.add(custSet);
             }
-        } else if (config.customSettings.permissionsFor.length > 0){
+        } else if (config.customSettings.permissionsFor && config.customSettings.permissionsFor.length > 0){
             for (const custSet of config.customSettings.permissionsFor) {
                 sObjectSet.add(custSet);
             }
@@ -573,14 +596,14 @@ const addSObjectsToManifest = function(
         }
     }
 
-    if (config.isCustomTabPermissions) {
-        if (config.customTabs.allPermissions) {
+    if (config.isCustomTabPermissions && config.customTabs) {
+        if (config.customTabs.allPermissions && !!customTabList) {
             for (const custTab of customTabList) {
                 if (custTab.name.startsWith('standard-')) {
                     sObjectSet.add(custTab.sobjectName);
                 }
             }
-        } else if (config.customTabs.permissionsFor.length > 0){
+        } else if (config.customTabs.permissionsFor && config.customTabs.permissionsFor.length > 0){
             for (const custTab of config.customTabs.permissionsFor) {
                 if (custTab.startsWith('standard-')) {
                     sObjectSet.add(custTab.split('-')[1]);
@@ -610,6 +633,7 @@ const addTranslationSObjectsToManifest = function(
     activatedLanguages: string[]
 ): { manifestJSON: ManifestType; sObjectTranslationSet: Set<string> } {
 
+    config.sObjects = config.sObjects ?? [];
     const sObjectSet: Set<string> = new Set<string>();
     const sObjectTranslationSet: Set<string> = new Set<string>();
     const customObjectsMembers: TypeMembersType[] = [];
@@ -617,25 +641,25 @@ const addTranslationSObjectsToManifest = function(
 
     for (const sObject of config.sObjects) {
         if (
-            sObject.retrieveObjectRenameTranslations
-            || sObject.fields?.allTranslations
-            || (sObject.fields?.translationsFor && sObject.fields.translationsFor.length > 0)
-            || sObject.layouts?.allTranslations
-            || (sObject.layouts?.translationsFor && sObject.layouts.translationsFor.length > 0)
-            || sObject.fieldSets?.allTranslations
-            || (sObject.fieldSets?.translationsFor && sObject.fieldSets.translationsFor.length > 0)
-            || sObject.quickActions?.allTranslations
-            || (sObject.quickActions?.translationsFor && sObject.quickActions.translationsFor.length > 0)
-            || sObject.recordTypes?.allTranslations
-            || (sObject.recordTypes?.translationsFor && sObject.recordTypes.translationsFor.length > 0)
-            || sObject.sharingReasons?.allTranslations
-            || (sObject.sharingReasons?.translationsFor && sObject.sharingReasons.translationsFor.length > 0)
-            || sObject.validationRules?.allTranslations
-            || (sObject.validationRules?.translationsFor && sObject.validationRules.translationsFor.length > 0)
-            || sObject.webLinks?.allTranslations
-            || (sObject.webLinks?.translationsFor && sObject.webLinks.translationsFor.length > 0)
-            || sObject.workflowTasks?.allTranslations
-            || (sObject.workflowTasks?.translationsFor && sObject.workflowTasks.translationsFor.length > 0)
+            !!sObject.retrieveObjectRenameTranslations
+            || !!sObject.fields?.allTranslations
+            || (!!sObject.fields?.translationsFor && sObject.fields.translationsFor.length > 0)
+            || !!sObject.layouts?.allTranslations
+            || (!!sObject.layouts?.translationsFor && sObject.layouts.translationsFor.length > 0)
+            || !!sObject.fieldSets?.allTranslations
+            || (!!sObject.fieldSets?.translationsFor && sObject.fieldSets.translationsFor.length > 0)
+            || !!sObject.quickActions?.allTranslations
+            || (!!sObject.quickActions?.translationsFor && sObject.quickActions.translationsFor.length > 0)
+            || !!sObject.recordTypes?.allTranslations
+            || (!!sObject.recordTypes?.translationsFor && sObject.recordTypes.translationsFor.length > 0)
+            || !!sObject.sharingReasons?.allTranslations
+            || (!!sObject.sharingReasons?.translationsFor && sObject.sharingReasons.translationsFor.length > 0)
+            || !!sObject.validationRules?.allTranslations
+            || (!!sObject.validationRules?.translationsFor && sObject.validationRules.translationsFor.length > 0)
+            || !!sObject.webLinks?.allTranslations
+            || (!!sObject.webLinks?.translationsFor && sObject.webLinks.translationsFor.length > 0)
+            || !!sObject.workflowTasks?.allTranslations
+            || (!!sObject.workflowTasks?.translationsFor && sObject.workflowTasks.translationsFor.length > 0)
         ) {
             sObjectSet.add(sObject.apiName);
             activatedLanguages.forEach(l => {
@@ -782,7 +806,7 @@ const addWorkflowsToManifest = function(
 
 const addGenericTypeToManifest = function(
     manifestJSON: ManifestType,
-    genericConfig: GenericTransConfigType,
+    genericConfig: GenericTransConfigType | undefined,
     fullItemList: SimpleToolingResponse[],
     itemTypeName: string
 ): { manifestJSON: ManifestType; isItemAdded: boolean } {
@@ -816,12 +840,12 @@ const addGenericTypeToManifest = function(
 
 const addGenericTypeToManifestWithWildcard = function(
     manifestJSON: ManifestType,
-    genericConfig: GenericTransConfigType,
+    genericConfig: GenericTransConfigType | undefined,
     itemTypeName: string
 ): { manifestJSON: ManifestType; isItemAdded: boolean } {
     const itemMembers: TypeMembersType[] = [];
 
-    if (genericConfig?.allTranslations || itemTypeName === registry.types.customlabels.name){
+    if (!!genericConfig?.allTranslations || itemTypeName === registry.types.customlabels.name){
         itemMembers.push({
             _: '*',
         });
@@ -855,14 +879,14 @@ const getLayoutFullNameWithNamespace = function (layoutItem: FileProperties): st
     return layoutFullName;
 }
 
-const addGenericMetadataToManifest = function(manifestJSON: ManifestType, configType: GenericPermConfigType, metadataName: string): ManifestType {
+const addGenericMetadataToManifest = function(manifestJSON: ManifestType, configType: GenericPermConfigType | undefined, metadataName: string): ManifestType {
     const typeMembers: TypeMembersType[] = [];
 
-    if (configType.allPermissions) {
+    if (configType?.allPermissions) {
         typeMembers.push({
             _: '*',
         })
-    } else {
+    } else if (configType?.permissionsFor){
         for (const elementName of configType.permissionsFor) {
             typeMembers.push({
                 _: elementName,
@@ -878,14 +902,14 @@ const addGenericMetadataToManifest = function(manifestJSON: ManifestType, config
     return manifestJSON;
 }
 
-const addCustomTabsToManifest = function(manifestJSON: ManifestType, configType: GenericPermConfigType): ManifestType {
+const addCustomTabsToManifest = function(manifestJSON: ManifestType, configType: GenericPermConfigType | undefined): ManifestType {
     const typeMembers: TypeMembersType[] = [];
 
-    if (configType.allPermissions) {
+    if (configType?.allPermissions) {
         typeMembers.push({
             _: '*',
         })
-    } else {
+    } else if (configType?.permissionsFor){
         for (const elementName of configType.permissionsFor) {
             if (!elementName.startsWith('standard-')) {
                 typeMembers.push({
@@ -955,6 +979,7 @@ const loadProfileFromPackageDirectories = function (
 
     if (!userDefPackageDirectories || userDefPackageDirectories.length === 0) {
         packageDirectories = new Array<string>();
+        projectPackageDirectories = projectPackageDirectories ?? [];
         for (const packageDirectory of projectPackageDirectories) {
             packageDirectories.push(packageDirectory.path);
         }
@@ -973,7 +998,7 @@ const loadProfileFromPackageDirectories = function (
         );
     }
 
-    const profileSourceFile: ProfileInfoType[] = profiles.map((elem) => ({ profilename: elem.name, filename: path.basename(elem.xml), path: elem.xml }));
+    const profileSourceFile: ProfileInfoType[] = profiles.map((elem) => ({ profilename: elem.name, filename: path.basename(elem.xml!), path: elem.xml! }));
     return profileSourceFile;
 }
 
@@ -990,6 +1015,7 @@ const loadTranslationsFromPackageDirectories = function (
 
     if (!userDefPackageDirectories || userDefPackageDirectories.length === 0) {
         packageDirectories = new Array<string>();
+        projectPackageDirectories = projectPackageDirectories ?? [];
         for (const packageDirectory of projectPackageDirectories) {
             packageDirectories.push(packageDirectory.path);
         }

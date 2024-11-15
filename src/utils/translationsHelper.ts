@@ -1,11 +1,39 @@
+/*
+ * Copyright (c) 2023, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
 /* eslint-disable no-await-in-loop */
-import * as path from 'path';
-import * as fs from 'fs';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
 import { registry, SourceComponent } from '@salesforce/source-deploy-retrieve';
-import * as utils from './utils';
-import { GenericTransConfigType, ParsedCustomObjectTranslation, ParsedTranslation, TranslationConfigType, UpdaterOptionsType } from './typeDefs';
-import { tempProjectDirName, workingDirName } from './constants';
-import { copyFile, copyFiles, deleteDirRecursive, deleteFile, deleteFiles, getAllFilesByEnding } from './dirManagment';
+// import { Translations } from '@salesforce/core/node_modules/jsforce/lib/api/metadata.js';
+import {
+    ObjectNameCaseValue,
+    FieldSetTranslation,
+    LayoutTranslation,
+    QuickActionTranslation,
+    RecordTypeTranslation,
+    SharingReasonTranslation,
+    ValidationRuleTranslation,
+    WebLinkTranslation,
+    WorkflowTaskTranslation
+} from '@salesforce/core/node_modules/jsforce/lib/api/metadata.js';
+import * as utils from './utils.js';
+import {
+    GenericTransConfigType,
+    ParsedCustomObjectTranslation,
+    ParsedTranslation,
+    TranslationConfigType,
+    UpdaterOptionsType,
+    sObjectTransKeySubset,
+    sObjectTransArrayTypes,
+    TransArrayTypes,
+    TransKeySubset 
+} from './typeDefs.js';
+import { tempProjectDirName, workingDirName } from './constants.js';
+import { copyFile, copyFiles, deleteDirRecursive, deleteFile, deleteFiles, getAllFilesByEnding } from './dirManagment.js';
 
 
 
@@ -17,20 +45,28 @@ const transJSONModified: Set<string> = new Set<string>();
 const updateFieldTranslations = async function (
     options: UpdaterOptionsType,
     config: TranslationConfigType,
-    retrievedObjectTranslations: SourceComponent[],
+    retrievedObjectTranslations: SourceComponent[] | undefined,
     activatedLanguages: string[]
 ): Promise<void> {
     const projectPath = options.projectPath;
     const projectPackDir = options.projectPackDir;
     const defaultPackDir = projectPackDir.find(packDir => packDir.default);
-    const defaultProjectSourcePath = path.join(defaultPackDir.fullPath, 'main', 'default');
+    const defaultProjectSourcePath = path.join(defaultPackDir?.fullPath ?? '', 'main', 'default');
+
+    if (!config.sObjects) {
+        return;
+    }
 
     for (const sObjConf of config.sObjects) {
-        if(sObjConf.fields?.allTranslations
-        || (sObjConf.fields?.translationsFor && sObjConf.fields.translationsFor.length > 0)) {
+        if(
+            sObjConf.fields?.allTranslations === true
+            || (sObjConf.fields?.translationsFor && sObjConf.fields.translationsFor.length > 0)) {
             for (const lang of activatedLanguages) {
                 // Get all retreived translations for this sObject and language
-                const retrievedsObjTrans = retrievedObjectTranslations.find(trans => trans.fullName === `${sObjConf.apiName}-${lang}`);
+                let retrievedsObjTrans: SourceComponent | undefined;
+                if (retrievedObjectTranslations){
+                    retrievedsObjTrans = retrievedObjectTranslations.find(trans => trans.fullName === `${sObjConf.apiName}-${lang}`);
+                }
                 const destDir = path.join(
                     defaultProjectSourcePath,
                     registry.types.customobjecttranslation.directoryName,
@@ -39,7 +75,7 @@ const updateFieldTranslations = async function (
                 if(retrievedsObjTrans) {
                     // Get all Field Translations for this sObject and language
                     const retrievedFieldTrans = retrievedsObjTrans.getChildren();
-                    const fieldTranslationEnding = `.${registry.types.customobjecttranslation.children.types.customfieldtranslation.suffix}-meta.xml`;
+                    const fieldTranslationEnding = `.${registry.types.customobjecttranslation.children?.types.customfieldtranslation.suffix}-meta.xml`;
 
                     if (sObjConf.fields.allTranslations) {
                         // deleting existing translations
@@ -76,7 +112,8 @@ const updateFieldTranslations = async function (
                             await copyFiles(sourceDir, destDir, translationList);
                         }
                     }
-                    else { // sObjConf.fieldsTranslationsFor && sObjConf.fieldsTranslationsFor.length > 0
+                    else // { sObjConf.fieldsTranslationsFor && sObjConf.fieldsTranslationsFor.length > 0
+                        if (sObjConf.fields.translationsFor) {
                         for (const fieldAPIName of sObjConf.fields.translationsFor) {
                             const retrievedTrans = retrievedFieldTrans.find(rft => rft.name === fieldAPIName);
                             // Build the destination path
@@ -86,7 +123,7 @@ const updateFieldTranslations = async function (
                             );
 
                             if(retrievedTrans) {
-                                await copyFile(retrievedTrans.xml, destPath);
+                                await copyFile(retrievedTrans.xml ?? '', destPath);
                             } else {
                                 await deleteFile(destPath);
                             }
@@ -106,18 +143,21 @@ const updateFieldTranslations = async function (
 const updateObjectTranslationsFile = async function (
     options: UpdaterOptionsType,
     config: TranslationConfigType,
-    localObjectTranslations: SourceComponent[],
-    retrievedObjectTranslations: SourceComponent[],
-    activatedLanguages: string[]
+    localObjectTranslations: SourceComponent[] | undefined,
+    retrievedObjectTranslations: SourceComponent[] | undefined,
+    activatedLanguages: string[] | undefined
 ): Promise<void> {
+    if(!activatedLanguages) {
+        throw new Error('error in updateObjectTranslationsFile : activatedLanguages is mandatory');
+    }
     // const projectPath = options.projectPath;
     const projectPackDir = options.projectPackDir;
     const defaultPackDir = projectPackDir.find(packDir => packDir.default);
-    const defaultProjectPath = path.join(defaultPackDir.fullPath, 'main', 'default');
+    const defaultProjectPath = path.join(defaultPackDir?.fullPath ?? '', 'main', 'default');
 
-    for (const sObjConf of config.sObjects) {
+    for (const sObjConf of config.sObjects ?? []) {
         if (sObjConf.retrieveObjectRenameTranslations) {
-            await updateGenericObjectTranslations(
+            await updateGenericObjectTranslations<ObjectNameCaseValue>(
                 {allTranslations: true},
                 sObjConf.apiName,
                 'caseValues',
@@ -128,9 +168,9 @@ const updateObjectTranslationsFile = async function (
                 defaultProjectPath
             );
         }
-        if (sObjConf.layouts?.allTranslations
+        if (sObjConf.layouts?.allTranslations === true
             || (sObjConf.layouts?.translationsFor && sObjConf.layouts.translationsFor.length > 0)) {
-            await updateGenericObjectTranslations(
+            await updateGenericObjectTranslations<LayoutTranslation>(
                 sObjConf.layouts,
                 sObjConf.apiName,
                 'layouts',
@@ -141,9 +181,9 @@ const updateObjectTranslationsFile = async function (
                 defaultProjectPath
             );
         }
-        if (sObjConf.fieldSets?.allTranslations
+        if (sObjConf.fieldSets?.allTranslations === true
             || (sObjConf.fieldSets?.translationsFor && sObjConf.fieldSets.translationsFor.length > 0)) {
-            await updateGenericObjectTranslations(
+            await updateGenericObjectTranslations<FieldSetTranslation>(
                 sObjConf.fieldSets,
                 sObjConf.apiName,
                 'fieldSets',
@@ -154,9 +194,9 @@ const updateObjectTranslationsFile = async function (
                 defaultProjectPath
             );
         }
-        if (sObjConf.quickActions?.allTranslations
+        if (sObjConf.quickActions?.allTranslations === true
             || (sObjConf.quickActions?.translationsFor && sObjConf.quickActions.translationsFor.length > 0)) {
-            await updateGenericObjectTranslations(
+            await updateGenericObjectTranslations<QuickActionTranslation>(
                 sObjConf.quickActions,
                 sObjConf.apiName,
                 'quickActions',
@@ -167,9 +207,9 @@ const updateObjectTranslationsFile = async function (
                 defaultProjectPath
             );
         }
-        if (sObjConf.recordTypes?.allTranslations
+        if (sObjConf.recordTypes?.allTranslations === true
             || (sObjConf.recordTypes?.translationsFor && sObjConf.recordTypes.translationsFor.length > 0)) {
-            await updateGenericObjectTranslations(
+            await updateGenericObjectTranslations<RecordTypeTranslation>(
                 sObjConf.recordTypes,
                 sObjConf.apiName,
                 'recordTypes',
@@ -180,9 +220,9 @@ const updateObjectTranslationsFile = async function (
                 defaultProjectPath
             );
         }
-        if (sObjConf.sharingReasons?.allTranslations
+        if (sObjConf.sharingReasons?.allTranslations === true
             || (sObjConf.sharingReasons?.translationsFor && sObjConf.sharingReasons.translationsFor.length > 0)) {
-            await updateGenericObjectTranslations(
+            await updateGenericObjectTranslations<SharingReasonTranslation>(
                 sObjConf.sharingReasons,
                 sObjConf.apiName,
                 'sharingReasons',
@@ -193,9 +233,9 @@ const updateObjectTranslationsFile = async function (
                 defaultProjectPath
             );
         }
-        if (sObjConf.validationRules?.allTranslations
+        if (sObjConf.validationRules?.allTranslations === true
             || (sObjConf.validationRules?.translationsFor && sObjConf.validationRules.translationsFor.length > 0)) {
-            await updateGenericObjectTranslations(
+            await updateGenericObjectTranslations<ValidationRuleTranslation>(
                 sObjConf.validationRules,
                 sObjConf.apiName,
                 'validationRules',
@@ -206,9 +246,9 @@ const updateObjectTranslationsFile = async function (
                 defaultProjectPath
             );
         }
-        if (sObjConf.webLinks?.allTranslations
+        if (sObjConf.webLinks?.allTranslations === true
             || (sObjConf.webLinks?.translationsFor && sObjConf.webLinks.translationsFor.length > 0)) {
-            await updateGenericObjectTranslations(
+            await updateGenericObjectTranslations<WebLinkTranslation>(
                 sObjConf.webLinks,
                 sObjConf.apiName,
                 'webLinks',
@@ -219,9 +259,9 @@ const updateObjectTranslationsFile = async function (
                 defaultProjectPath
             );
         }
-        if (sObjConf.workflowTasks?.allTranslations
+        if (sObjConf.workflowTasks?.allTranslations === true
             || (sObjConf.workflowTasks?.translationsFor && sObjConf.workflowTasks.translationsFor.length > 0)) {
-            await updateGenericObjectTranslations(
+            await updateGenericObjectTranslations<WorkflowTaskTranslation>(
                 sObjConf.workflowTasks,
                 sObjConf.apiName,
                 'workflowTasks',
@@ -241,23 +281,21 @@ const updateObjectTranslationsFile = async function (
     return;
 }
 
-const updateGenericObjectTranslations = async function (
+// eslint-disable-next-line complexity
+const updateGenericObjectTranslations = async function<T extends sObjectTransArrayTypes> (
     genericConfig: GenericTransConfigType,
     sObjAPIName: string,
-    translationType: string,
-    translationTypeKey: string,
-    localObjectTranslations: SourceComponent[],
-    retrievedObjectTranslations: SourceComponent[],
+    translationType:  sObjectTransKeySubset,
+    translationTypeKey: string | undefined,
+    localObjectTranslations: SourceComponent[] | undefined,
+    retrievedObjectTranslations: SourceComponent[] | undefined,
     activatedLanguages: string[],
     defaultProjectPath: string
 ): Promise<void> {
-    /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-    /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-    /* eslint-disable @typescript-eslint/no-unsafe-call */
     if(genericConfig.allTranslations) {
         for (const lang of activatedLanguages) {
             // Get all retreived translations for this sObject and language
-            const retrievedsObjTrans = retrievedObjectTranslations.find(trans => trans.fullName === `${sObjAPIName}-${lang}`);
+            const retrievedsObjTrans = retrievedObjectTranslations?.find(trans => trans.fullName === `${sObjAPIName}-${lang}`);
             const destDir = path.join(
                 defaultProjectPath,
                 registry.types.customobjecttranslation.directoryName,
@@ -278,7 +316,11 @@ const updateGenericObjectTranslations = async function (
                     const retrievedObjectTranslation = await getOjectTranslationJSON(retrievedObjectTransFilePath);
                     const localObjectTranslation = await getOjectTranslationJSON(localObjectTransFilePath);
                     if  (localObjectTranslation.CustomObjectTranslation){
-                        localObjectTranslation.CustomObjectTranslation[translationType] = retrievedObjectTranslation.CustomObjectTranslation?.[translationType];
+                        // localObjectTranslation.CustomObjectTranslation[translationType] = retrievedObjectTranslation.CustomObjectTranslation?.[translationType];
+                        localObjectTranslation.CustomObjectTranslation = {
+                            ...localObjectTranslation.CustomObjectTranslation,
+                            [translationType]: retrievedObjectTranslation.CustomObjectTranslation?.[translationType]
+                        }
                         objTransJSONModified.add(localObjectTransFilePath);
                     }
                 }
@@ -290,11 +332,11 @@ const updateGenericObjectTranslations = async function (
     } else if (genericConfig.translationsFor && genericConfig.translationsFor.length > 0) {
         for (const lang of activatedLanguages) {
             // Get all retreived translations for this sObject and language
-            const localsObjTransSC = localObjectTranslations.find(trans => trans.fullName === `${sObjAPIName}-${lang}`);
-            const retrievedsObjTransSC = retrievedObjectTranslations.find(trans => trans.fullName === `${sObjAPIName}-${lang}`);
+            const localsObjTransSC = localObjectTranslations?.find(trans => trans.fullName === `${sObjAPIName}-${lang}`);
+            const retrievedsObjTransSC = retrievedObjectTranslations?.find(trans => trans.fullName === `${sObjAPIName}-${lang}`);
 
-            const isExistingTrans = !!localsObjTransSC && fs.existsSync(localsObjTransSC.xml);
-            const isRetrievedTrans = !!retrievedsObjTransSC && fs.existsSync(retrievedsObjTransSC.xml);
+            const isExistingTrans = !!localsObjTransSC?.xml && fs.existsSync(localsObjTransSC.xml);
+            const isRetrievedTrans = !!retrievedsObjTransSC?.xml && fs.existsSync(retrievedsObjTransSC.xml);
 
             const destDir = path.join(
                 defaultProjectPath,
@@ -318,47 +360,55 @@ const updateGenericObjectTranslations = async function (
                 // Existing translation found but no retrieved one : deleting local one
                 await deleteDirRecursive(destDir);
             } else {
+                if(!localsObjTransSC?.xml) {
+                    throw new Error('error in updateGenericObjectTranslations : localsObjTransSC should not be null');
+                }
+                if(!retrievedsObjTransSC?.xml) {
+                    throw new Error('error in updateGenericObjectTranslations : retrievedsObjTransSC should not be null');
+                }
                 // Existing & retrieved translations exist : updating local one
                 const localsObjTransJSON = await getOjectTranslationJSON(localsObjTransSC.xml);
                 const retrievedsObjTransJSON = await getOjectTranslationJSON(retrievedsObjTransSC.xml);
 
-                let allLocalGenericTrans = localsObjTransJSON?.CustomObjectTranslation?.[translationType];
-                const allRetrievedGenericTrans = retrievedsObjTransJSON?.CustomObjectTranslation?.[translationType];
+                let allLocalGenericTrans = localsObjTransJSON?.CustomObjectTranslation?.[translationType] as T[];
+                const allRetrievedGenericTrans = retrievedsObjTransJSON?.CustomObjectTranslation?.[translationType] as T[];
 
                 // remove existing translations
                 allLocalGenericTrans =
-                    allLocalGenericTrans?.filter(gt => !genericConfig.translationsFor.includes(gt[translationTypeKey][0])) ?? [];
+                    allLocalGenericTrans?.filter((gt) => !genericConfig?.translationsFor?.includes(gt[translationTypeKey as keyof sObjectTransArrayTypes][0]));
 
-                const retrievedGenericTrans = allRetrievedGenericTrans?.filter(gt => genericConfig.translationsFor.includes(gt[translationTypeKey][0]));
+                const retrievedGenericTrans = allRetrievedGenericTrans?.filter(gt => genericConfig?.translationsFor?.includes(gt[translationTypeKey as keyof sObjectTransArrayTypes][0]));
                 allLocalGenericTrans.push(...retrievedGenericTrans);
 
-                localsObjTransJSON.CustomObjectTranslation[translationType] = allLocalGenericTrans;
+                (localsObjTransJSON.CustomObjectTranslation[translationType] as T[]) = allLocalGenericTrans;
 
                 objTransJSONModified.add(localsObjTransSC.xml);
             }
         }
     }
-
 }
 
 // eslint-disable-next-line complexity
 const updateTranslations = async function (
     options: UpdaterOptionsType,
     config: TranslationConfigType,
-    localTranslations: SourceComponent[],
-    retrievedTranslations: SourceComponent[],
+    localTranslations: SourceComponent[] | undefined,
+    retrievedTranslations: SourceComponent[] | undefined,
     activatedLanguages: string[]
 ): Promise<void> {
     
     const projectPackDir = options.projectPackDir;
     const defaultPackDir = projectPackDir.find(packDir => packDir.default);
+    if(!defaultPackDir) {
+        throw new Error('error in updateTranslations : defaultPackDir should not be null');
+    }
     const defaultProjectPath = path.join(defaultPackDir.fullPath, 'main', 'default');
     const destDir = path.join(
         defaultProjectPath,
         registry.types.translations.directoryName
     );
 
-    if (config.isCustomApplicationTranslations) {
+    if (config.isCustomApplicationTranslations && !!config.customApplications) {
         await updateGenericTranslations(
             config.customApplications,
             'customApplications',
@@ -370,7 +420,7 @@ const updateTranslations = async function (
         );
     }
 
-    if (config.isCustomLabelTranslations) {
+    if (config.isCustomLabelTranslations && !!config.customLabels) {
         await updateGenericTranslations(
             config.customLabels,
             'customLabels',
@@ -382,7 +432,7 @@ const updateTranslations = async function (
         );
     }
 
-    if (config.isFlowTranslations) {
+    if (config.isFlowTranslations && !!config.flows) {
         await updateGenericTranslations(
             config.flows,
             'flowDefinitions',
@@ -394,7 +444,7 @@ const updateTranslations = async function (
         );
     }
 
-    if (config.isGlobalQuickActionTranslations) {
+    if (config.isGlobalQuickActionTranslations && !!config.globalQuickActions) {
         await updateGenericTranslations(
             config.globalQuickActions,
             'quickActions',
@@ -406,7 +456,7 @@ const updateTranslations = async function (
         );
     }
 
-    if (config.isReportTypeTranslations) {
+    if (config.isReportTypeTranslations && !!config.reportTypes) {
         await updateGenericTranslations(
             config.reportTypes,
             'reportTypes',
@@ -426,36 +476,42 @@ const updateTranslations = async function (
     return;
 }
 
-const updateGenericTranslations = async function (
+// eslint-disable-next-line complexity
+const updateGenericTranslations = async function<T extends TransArrayTypes> (
     genericConfig: GenericTransConfigType,
-    translationType: string,
+    translationType: TransKeySubset,
     translationTypeKey: string,
-    localTranslations: SourceComponent[],
-    retrievedTranslations: SourceComponent[],
+    localTranslations: SourceComponent[] | undefined,
+    retrievedTranslations: SourceComponent[] | undefined,
     activatedLanguages: string[],
     destDir: string
 ): Promise<void> {
     if(genericConfig.allTranslations) {
         for (const lang of activatedLanguages) {
             // Get all retreived translations for this language
-            const retrievedTrans = retrievedTranslations.find(trans => trans.fullName === lang);
-            const retrievedTransFilePath = retrievedTrans.xml;
-            const fileName = path.basename(retrievedTransFilePath)
-            const localTransFilePath = path.join(
+            let retrievedTrans: SourceComponent | undefined;
+            if (retrievedTranslations){
+                retrievedTrans = retrievedTranslations.find(trans => trans.fullName === lang);
+            }
+            const retrievedTransFilePath = retrievedTrans?.xml
+            const fileName = retrievedTransFilePath ? path.basename(retrievedTransFilePath) : undefined;
+            const localTransFilePath = fileName ? path.join(
                 destDir,
                 fileName
-            );
+            ) : undefined;
             
             if(retrievedTrans) {
                 // Get translation files Path
-                if (!fs.existsSync(localTransFilePath)) {
+                if (localTransFilePath && !fs.existsSync(localTransFilePath)) {
                     // No local translation for this language, so copy the retrieved one
                     await copyFile(retrievedTransFilePath, localTransFilePath);
                 } else {
                     const retrievedTranslation = await getTranslationJSON(retrievedTransFilePath);
                     const localTranslation = await getTranslationJSON(localTransFilePath);
-                    localTranslation.Translations[translationType] = retrievedTranslation.Translations[translationType];
-                    transJSONModified.add(localTransFilePath);
+                    (localTranslation.Translations[translationType] as T[]) = retrievedTranslation.Translations[translationType] as T[];
+                    if (localTransFilePath) {
+                        transJSONModified.add(localTransFilePath);
+                    }
                 }
             } else {
                 // translation does not exist anymore, so delete its translations
@@ -465,19 +521,25 @@ const updateGenericTranslations = async function (
     }else if (genericConfig.translationsFor && genericConfig.translationsFor.length > 0) {
         for (const lang of activatedLanguages) {
             // Get all retreived translations for this language
-            const localTransSC = localTranslations.find(trans => trans.fullName === lang);
-            const retrievedTransSC = retrievedTranslations.find(trans => trans.fullName === lang);
+            let localTransSC: SourceComponent | undefined 
+            if(localTranslations){
+                localTransSC = localTranslations.find(trans => trans.fullName === lang);
+            }
+            let retrievedTransSC: SourceComponent | undefined;
+            if (retrievedTranslations) {
+                retrievedTransSC = retrievedTranslations.find(trans => trans.fullName === lang);
+            }
             let localTransFilePath = localTransSC?.xml;
             const retrievedTransFilePath = retrievedTransSC?.xml;
 
-            const isExistingTrans = !!localTransSC && fs.existsSync(localTransSC.xml);
-            const isRetrievedTrans = !!retrievedTransSC && fs.existsSync(retrievedTransSC.xml);
+            const isExistingTrans = !!localTransSC?.xml && fs.existsSync(localTransSC.xml);
+            const isRetrievedTrans = !!retrievedTransSC?.xml && fs.existsSync(retrievedTransSC.xml);
 
             if (!isExistingTrans && !isRetrievedTrans) {
                 // No existing nor retrieved translation for this sObject & language
                 continue;
             }
-            else if (!isExistingTrans && isRetrievedTrans) {
+            else if (!isExistingTrans && isRetrievedTrans && !!retrievedTransFilePath) {
                 // No existing translation : copying whole retrieved one
                 const fileName = path.basename(retrievedTransFilePath)
                 localTransFilePath = path.join(
@@ -486,29 +548,37 @@ const updateGenericTranslations = async function (
                 );
                 await copyFile(retrievedTransFilePath, localTransFilePath);
             }
-            else if (isExistingTrans && !isRetrievedTrans) {
+            else if (isExistingTrans && !isRetrievedTrans && !!localTransFilePath) {
                 // Existing translation found but no retrieved one : deleting local one
                 await deleteFile(localTransFilePath);
             } else {
+                if(!localTransFilePath) {
+                    throw new Error('error in updateGenericTranslations : localTransFilePath should not be null');
+                }
+                if(!retrievedTransFilePath) {
+                    throw new Error('error in updateGenericTranslations : retrievedTransFilePath should not be null');
+                }
                 // Existing & retrieved translations exist : updating local one
                 const localTransJSON = await getTranslationJSON(localTransFilePath);
                 const retrievedTransJSON = await getTranslationJSON(retrievedTransFilePath);
 
-                let allLocalGenericTrans = localTransJSON?.Translations?.[translationType];
-                const allRetrievedGenericTrans = retrievedTransJSON?.Translations?.[translationType];
+                let allLocalGenericTrans = localTransJSON?.Translations?.[translationType] as T[];
+                const allRetrievedGenericTrans = retrievedTransJSON?.Translations?.[translationType] as T[];
 
                 // remove existing translations
                 allLocalGenericTrans =
-                    allLocalGenericTrans?.filter(gt => !genericConfig.translationsFor.includes(gt[translationTypeKey][0])) ?? [];
+                    allLocalGenericTrans?.filter((gt) => !genericConfig?.translationsFor?.includes(gt[translationTypeKey as keyof TransArrayTypes]?.[0] ?? 'key not found'));
 
-                const retrievedGenericTrans = allRetrievedGenericTrans?.filter(gt => genericConfig.translationsFor.includes(gt[translationTypeKey][0]));
+                const retrievedGenericTrans = allRetrievedGenericTrans?.filter(gt => genericConfig?.translationsFor?.includes(gt[translationTypeKey as keyof TransArrayTypes]?.[0] ?? 'key not found'));
                 if (retrievedGenericTrans) {
                     allLocalGenericTrans.push(...retrievedGenericTrans);
                 }
 
-                localTransJSON.Translations[translationType] = allLocalGenericTrans;
+                (localTransJSON.Translations[translationType] as T[]) = allLocalGenericTrans;
 
-                transJSONModified.add(localTransSC.xml);
+                if(localTransSC?.xml){
+                    transJSONModified.add(localTransSC.xml);
+                }
             }
         }
     }
@@ -516,18 +586,24 @@ const updateGenericTranslations = async function (
 }
 
 const getOjectTranslationJSON = async function (
-    filePath: string
+    filePath?: string
 ): Promise<ParsedCustomObjectTranslation> {
-    if (!objTransJSON || !objTransJSON[filePath]) {
+    if(!filePath) {
+        throw new Error('error in getOjectTranslationJSON : filePath is mandatory');
+    }
+    if (!objTransJSON?.[filePath]) {
         objTransJSON[filePath] = await utils.readXml(filePath) as ParsedCustomObjectTranslation;
     }
     return objTransJSON[filePath];
 }
 
 const getTranslationJSON = async function (
-    filePath: string
+    filePath?: string
 ): Promise<ParsedTranslation> {
-    if (!transJSON || !transJSON[filePath]) {
+    if(!filePath) {
+        throw new Error('error in getTranslationJSON : filePath is mandatory');
+    }
+    if (!transJSON?.[filePath]) {
         transJSON[filePath] = await utils.readXml(filePath) as ParsedTranslation;
     }
     return transJSON[filePath];

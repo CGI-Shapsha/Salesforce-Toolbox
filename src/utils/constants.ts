@@ -1,9 +1,18 @@
+/*
+ * Copyright (c) 2023, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+import { CustomObjectTranslation, Translations } from '@salesforce/core/node_modules/jsforce/lib/api/metadata.js';
+import { ManifestType, ProfileCustom } from './typeDefs.js';
+
 const workingDirName = 'CGIToolBoxWD';
 const profileConfigFileName = 'profileUpdateConfig.json';
 const translationConfigFileName = 'translationUpdateConfig.json';
 const manifestFileName = 'manifest.xml';
 const tempProjectDirName = 'temp-app';
-const manifestJSONBase = {
+const manifestJSONBase: ManifestType = {
     Package: {
         $: {
             xmlns: 'http://soap.sforce.com/2006/04/metadata',
@@ -138,6 +147,59 @@ const exampleTranslationConfig = {
         translationsFor: ['reportTypes1', 'reportTypes2']
     }
 };
+const emptyProfile: ProfileCustom = {
+    applicationVisibilities: [],
+    categoryGroupVisibilities: [],
+    classAccesses: [],
+    custom: undefined,
+    customMetadataTypeAccesses: [],
+    customPermissions: [],
+    customSettingAccesses: [],
+    description: undefined,
+    externalDataSourceAccesses: [],
+    fieldPermissions: [],
+    flowAccesses: [],
+    fullName: undefined,
+    layoutAssignments: [],
+    loginHours: undefined,
+    loginIpRanges: undefined,
+    objectPermissions: [],
+    pageAccesses: [],
+    profileActionOverrides: [],
+    recordTypeVisibilities: [],
+    tabVisibilities: [],
+    userLicense: undefined,
+    userPermissions: []
+};
+const emptyObjTranslation: CustomObjectTranslation = {
+    caseValues: [],
+    fieldSets: [],
+    fields: [],
+    fullName: undefined,
+    gender: undefined,
+    layouts: [],
+    nameFieldLabel: undefined,
+    quickActions: [],
+    recordTypes: [],
+    sharingReasons: [],
+    standardFields: [],
+    startsWith: undefined,
+    validationRules: [],
+    webLinks: [],
+    workflowTasks: []
+};
+const emptyTranslation: Translations = {
+    customApplications: [],
+    customDataTypeTranslations: [],
+    customLabels: [],
+    customPageWebLinks: [],
+    customTabs: [],
+    flowDefinitions: [],
+    fullName: undefined,
+    quickActions: [],
+    reportTypes: [],
+    scontrols: []
+};
 
 export { 
     workingDirName,
@@ -147,5 +209,8 @@ export {
     exampleTranslationConfig,
     manifestFileName,
     manifestJSONBase,
-    tempProjectDirName
+    tempProjectDirName,
+    emptyProfile,
+    emptyObjTranslation,
+    emptyTranslation
 };
