@@ -1,7 +1,7 @@
 {
   "name": "@cgi-fr/salesforce-toolbox",
   "description": "A plugin for Salesforce CLI to make Salesforce developers' life easier ! Made by Philippe Planchon for CGI©.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "author": "Philippe Planchon <planchon.phil@gmail.com>",
   "bugs": "https://github.com/CGI-Shapsha/Salesforce-Toolbox/issues",
   "dependencies": {
