@@ -50,25 +50,30 @@
       "@oclif/plugin-help"
     ],
     "topics": {
-      "CGI profiles": {
-        "description": "Commands to manage profile updates.",
+      "CGI": {
+        "description": "Commands from CGIToolBox plugin",
         "subtopics": {
-          "initConfig": {
-            "description": "Initialize the config file before running 'sf CGI profiles update' command."
+          "profiles": {
+            "description": "Commands to manage profile updates.",
+            "subtopics": {
+              "initConfig": {
+                "description": "Initialize the config file before running 'sf CGI profiles update' command."
+              },
+              "update": {
+                "description": "Update all local Profiles with permissions retrieved from a specified Org, according to the config file."
+              }
+            }
           },
-          "update": {
-            "description": "Update all local Profiles with permissions retrieved from a specified Org, according to the config file."
-          }
-        }
-      },
-      "CGI translations": {
-        "description": "Commands to manage translations updates.",
-        "subtopics": {
-          "initConfig": {
-            "description": "Initialize the config file before running 'sf CGI translations update' command"
-          },
-          "update": {
-            "description": "Update local Translations with the ones retrieved from a specified Org, according to the config file."
+          "translations": {
+            "description": "Commands to manage translations updates.",
+            "subtopics": {
+              "initConfig": {
+                "description": "Initialize the config file before running 'sf CGI translations update' command"
+              },
+              "update": {
+                "description": "Update local Translations with the ones retrieved from a specified Org, according to the config file."
+              }
+            }
           }
         }
       }
