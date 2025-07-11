@@ -1,8 +1,9 @@
 {
   "extends": "@salesforce/dev-config/tsconfig-strict-esm",
   "compilerOptions": {
+    "skipLibCheck": true,
     "outDir": "lib",
     "rootDir": "src"
   },
-  "include": ["./src/**/*.ts","./.eslintrc.cjs"]
+  "include": ["./src/**/*.ts", "./.eslintrc.cjs", "./commitlint.config.cjs"]
 }

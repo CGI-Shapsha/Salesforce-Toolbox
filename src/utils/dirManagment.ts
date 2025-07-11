@@ -1,19 +1,23 @@
-/*
- * Copyright (c) 2023, salesforce.com, inc.
- * All rights reserved.
- * Licensed under the BSD 3-Clause license.
- * For full license text, see LICENSE.txt file in the repo root or https://opensource.org/licenses/BSD-3-Clause
+/**
+ * @description Utility methods to manage file system
+ * @author Philippe Planchon <planchon.phil@gmail.com>
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { workingDirName, profileConfigFileName, translationConfigFileName, exampleProfileConfig, exampleTranslationConfig } from './constants.js';
+import {
+  workingDirName,
+  profileConfigFileName,
+  translationConfigFileName,
+  exampleProfileConfig,
+  exampleTranslationConfig,
+} from './constants.js';
 
 const checkWorkingDir = async function (projectPath: string): Promise<string> {
-    const workingDirPath = path.join(projectPath, workingDirName);
-    if (!fs.existsSync(workingDirPath)) {
-        await fs.promises.mkdir(workingDirPath);
-    }
-    return workingDirPath;
+  const workingDirPath = path.join(projectPath, workingDirName);
+  if (!fs.existsSync(workingDirPath)) {
+    await fs.promises.mkdir(workingDirPath);
+  }
+  return workingDirPath;
 };
 
 /**
@@ -22,15 +26,15 @@ const checkWorkingDir = async function (projectPath: string): Promise<string> {
  * @param projectPath path to the sfdx project root dir
  */
 const startProfileInit = async function (projectPath?: string): Promise<string> {
-    if(!projectPath) {
-        throw new Error('error in startProfileInit : projectPath is mandatory');
-    }
-    const workingDirPath = await checkWorkingDir(projectPath);
+  if (!projectPath) {
+    throw new Error('error in startProfileInit : projectPath is mandatory');
+  }
+  const workingDirPath = await checkWorkingDir(projectPath);
 
-    const configFilePath: fs.PathLike = path.join(workingDirPath, profileConfigFileName);
-    await fs.promises.writeFile(configFilePath, JSON.stringify(exampleProfileConfig, null, '\t'));
+  const configFilePath: fs.PathLike = path.join(workingDirPath, profileConfigFileName);
+  await fs.promises.writeFile(configFilePath, JSON.stringify(exampleProfileConfig, null, '\t'));
 
-    return configFilePath;
+  return configFilePath;
 };
 
 /**
@@ -39,15 +43,15 @@ const startProfileInit = async function (projectPath?: string): Promise<string> 
  * @param projectPath path to the sfdx project root dir
  */
 const startTranslationInit = async function (projectPath?: string): Promise<string> {
-    if(!projectPath) {
-        throw new Error('error in startProfileInit : projectPath is mandatory');
-    }
-    const workingDirPath = await checkWorkingDir(projectPath);
+  if (!projectPath) {
+    throw new Error('error in startProfileInit : projectPath is mandatory');
+  }
+  const workingDirPath = await checkWorkingDir(projectPath);
 
-    const configFilePath: fs.PathLike = path.join(workingDirPath, translationConfigFileName);
-    await fs.promises.writeFile(configFilePath, JSON.stringify(exampleTranslationConfig, null, '\t'));
+  const configFilePath: fs.PathLike = path.join(workingDirPath, translationConfigFileName);
+  await fs.promises.writeFile(configFilePath, JSON.stringify(exampleTranslationConfig, null, '\t'));
 
-    return configFilePath;
+  return configFilePath;
 };
 
 /**
@@ -56,12 +60,12 @@ const startTranslationInit = async function (projectPath?: string): Promise<stri
  * @param dirPath path to the directory to delete
  */
 const deleteDirRecursive = async function (dirPath: string): Promise<void> {
-    try {
-        await fs.promises.rm(dirPath, { recursive: true, force: true });
-    } catch {
-        // try another time if it failed the first time
-        await fs.promises.rm(dirPath, { recursive: true, force: true });
-    }
+  try {
+    await fs.promises.rm(dirPath, { recursive: true, force: true });
+  } catch {
+    // try another time if it failed the first time
+    await fs.promises.rm(dirPath, { recursive: true, force: true });
+  }
 };
 
 /**
@@ -70,10 +74,10 @@ const deleteDirRecursive = async function (dirPath: string): Promise<void> {
  * @param filePath path to the file to delete
  */
 const deleteFile = async function (filePath: string | undefined): Promise<void> {
-    if(!filePath) return;
-    if(fs.existsSync(filePath) && fs.lstatSync(filePath).isFile()){
-        await fs.promises.rm(filePath, { force: true });
-    }
+  if (!filePath) return;
+  if (fs.existsSync(filePath) && fs.lstatSync(filePath).isFile()) {
+    await fs.promises.rm(filePath, { force: true });
+  }
 };
 
 /**
@@ -83,9 +87,7 @@ const deleteFile = async function (filePath: string | undefined): Promise<void> 
  * @param fileList file names list
  */
 const deleteFiles = async function (dirPath: string, fileList: string[]): Promise<void> {
-    await Promise.all(
-        fileList.map(file =>fs.promises.unlink(path.join(dirPath,file)))
-    );
+  await Promise.all(fileList.map((file) => fs.promises.unlink(path.join(dirPath, file))));
 };
 
 /**
@@ -95,14 +97,14 @@ const deleteFiles = async function (dirPath: string, fileList: string[]): Promis
  * @param destinationPath destination file path
  */
 const copyFile = async function (sourcePath?: string, destinationPath?: string): Promise<void> {
-    if (!sourcePath || !destinationPath) {
-        return;
-    }
-    const destDirName = path.dirname(destinationPath);
-    if (!fs.existsSync(destDirName)) {
-        await fs.promises.mkdir(destDirName, {recursive: true});
-    }
-    await fs.promises.copyFile(sourcePath, destinationPath);
+  if (!sourcePath || !destinationPath) {
+    return;
+  }
+  const destDirName = path.dirname(destinationPath);
+  if (!fs.existsSync(destDirName)) {
+    await fs.promises.mkdir(destDirName, { recursive: true });
+  }
+  await fs.promises.copyFile(sourcePath, destinationPath);
 };
 
 /**
@@ -113,12 +115,12 @@ const copyFile = async function (sourcePath?: string, destinationPath?: string):
  * @param fileList file names list
  */
 const copyFiles = async function (sourceDirPath: string, destDirPath: string, fileList: string[]): Promise<void> {
-    if (!fs.existsSync(destDirPath)) {
-        await fs.promises.mkdir(destDirPath, {recursive: true});
-    }
-    await Promise.all(
-        fileList.map(file => fs.promises.copyFile(path.join(sourceDirPath,file), path.join(destDirPath,file)))
-    );
+  if (!fs.existsSync(destDirPath)) {
+    await fs.promises.mkdir(destDirPath, { recursive: true });
+  }
+  await Promise.all(
+    fileList.map((file) => fs.promises.copyFile(path.join(sourceDirPath, file), path.join(destDirPath, file)))
+  );
 };
 
 /**
@@ -128,7 +130,7 @@ const copyFiles = async function (sourceDirPath: string, destDirPath: string, fi
  * @param destinationPath destination path
  */
 const copyDir = async function (sourcePath: string, destinationPath: string): Promise<void> {
-    await fs.promises.cp(sourcePath, destinationPath, {recursive: true});
+  await fs.promises.cp(sourcePath, destinationPath, { recursive: true });
 };
 
 /**
@@ -138,18 +140,29 @@ const copyDir = async function (sourcePath: string, destinationPath: string): Pr
  * @param destinationPath destination path
  */
 const getAllFilesByEnding = async function (dirPath: string, ending: string): Promise<string[]> {
-    const matchedFiles: string[] = [];
+  const matchedFiles: string[] = [];
 
-    const files = await fs.promises.readdir(dirPath);
+  const files = await fs.promises.readdir(dirPath);
 
-    for (const file of files) {
-        // Method 3:
-        if (file.includes(ending)) {
-            matchedFiles.push(file);
-        }
+  for (const file of files) {
+    // Method 3:
+    if (file.includes(ending)) {
+      matchedFiles.push(file);
     }
+  }
 
-    return matchedFiles;
+  return matchedFiles;
 };
 
-export { checkWorkingDir, startProfileInit, startTranslationInit, deleteDirRecursive, deleteFile, deleteFiles, copyFile, copyFiles, copyDir, getAllFilesByEnding };
+export {
+  checkWorkingDir,
+  startProfileInit,
+  startTranslationInit,
+  deleteDirRecursive,
+  deleteFile,
+  deleteFiles,
+  copyFile,
+  copyFiles,
+  copyDir,
+  getAllFilesByEnding,
+};
